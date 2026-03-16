@@ -69,8 +69,10 @@ export default function SynthesisRoom() {
         showCloseButton={false}
       >
         <div className="flex flex-col items-center p-4">
-          <div className="w-32 h-32 mb-6 bg-gradient-to-br from-[#7C5CFC] to-[#F472B6] rounded-[3rem] flex items-center justify-center shadow-[0_0_50px_rgba(244,114,182,0.8)] animate-spin p-3" style={{ animationDuration: '3s' }}>
-            <img src={uiImages.ultimatePizza} alt="終極瑪格麗特披薩" className="w-full h-full object-contain" />
+          <div className="w-44 h-44 mb-6 rounded-[2rem] border-2 border-white/20 bg-gradient-to-b from-[#111827] to-[#1F2937] p-3 shadow-[0_20px_60px_rgba(0,0,0,0.55)]">
+            <div className="w-full h-full rounded-[1.3rem] bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_45%),linear-gradient(135deg,#334155,#0F172A)] p-2 overflow-hidden">
+              <img src={uiImages.ultimatePizza} alt="終極瑪格麗特披薩" className="w-full h-full object-cover rounded-[1rem]" />
+            </div>
           </div>
           <p className="text-xl text-white font-bold mb-2 tracking-widest text-[#FBBF24]">終極瑪格麗特披薩</p>
           <p className="text-sm text-gray-300 mb-8">五種食材已完成加工，下一步可以前往最終挑戰！</p>

@@ -32,6 +32,7 @@ export default function MainDashboard() {
       if (!aCollected && bCollected) return 1;
       return a.originalIndex - b.originalIndex;
     });
+  const collectedIngredients = sortedIngredients.filter((item) => item.isCollected);
   const teamName = "閃電特攻隊";
 
   const handleScanClick = () => {
@@ -107,7 +108,7 @@ export default function MainDashboard() {
 
           {/* Collected Items Grid */}
           <div className="grid grid-cols-2 gap-4 pb-24">
-            {sortedIngredients.map((item) => (
+            {collectedIngredients.map((item) => (
               <ItemCard
                 key={item.id}
                 title={item.title}
@@ -117,6 +118,11 @@ export default function MainDashboard() {
                 glowColor={item.activeColor}
               />
             ))}
+            {collectedIngredients.length === 0 && (
+              <div className="col-span-2 rounded-2xl border border-dashed border-gray-600 bg-[#151A30]/70 px-4 py-8 text-center text-gray-400 text-sm">
+                目前還沒有已收集材料，請先前往關卡取得食材。
+              </div>
+            )}
           </div>
 
         </div>
