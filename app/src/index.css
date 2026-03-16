@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'JasonHandwriting2';
+  src: url('/font/JasonHandwriting2-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-bg-dark: #0D0F1A;
+  --color-card-bg: #1A1D2E;
+  --color-primary: #7C5CFC;
+  --color-secondary: #4ADE80;
+  --color-accent-pink: #F472B6;
+  --color-accent-blue: #38BDF8;
+  --color-accent-yellow: #FBBF24;
+  --color-text-main: #FFFFFF;
+  --color-text-muted: #9CA3AF;
+  
+  --font-handwriting: 'JasonHandwriting2', cursive, sans-serif;
+  
+  --animate-float: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg-dark);
+    color: var(--color-text-main);
+    font-family: var(--font-handwriting);
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Use touch-action pan-y to prevent zooming on double tap but allow scrolling */
+    touch-action: pan-y;
+  }
+}
