@@ -101,14 +101,9 @@ export default function DragDropContainer({ items, slotsCount = 4, onComplete, o
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 80, tolerance: 14 } }),
     useSensor(KeyboardSensor)
   );
-
-  useEffect(() => {
-    setAvailableItems(items);
-    setSlots(Array(slotsCount).fill(null));
-  }, [items, slotsCount]);
 
   useEffect(() => {
     if (onChange) {

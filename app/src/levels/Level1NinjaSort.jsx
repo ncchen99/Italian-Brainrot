@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DragDropContainer from '../components/DragDropContainer';
 import Modal from '../components/Modal';
 import { ingredientImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { saveLevelProgress } from '../services/progressService';
 
 export default function Level1NinjaSort() {
   const navigate = useNavigate();
@@ -11,13 +13,14 @@ export default function Level1NinjaSort() {
   const [showError, setShowError] = useState(false);
   const [slots, setSlots] = useState([]);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level1');
+  const { teamId } = useAppSession();
 
   // Available ninjutsu signs
-  const items = [
+  const items = useMemo(() => ([
     { id: 'coffee', content: '咖', color: '#7C5CFC' },
     { id: 'fire', content: '火', color: '#EF4444' },
     { id: 'sword', content: '刀', color: '#FBBF24' }
-  ];
+  ]), []);
 
   const handleSubmit = () => {
     const allFilled = slots.length === 3 && slots.every(slot => slot !== null);
@@ -29,8 +32,14 @@ export default function Level1NinjaSort() {
     const isCorrect = currentSequence.every((id, index) => id === correctSequence[index]);
 
     if (isCorrect) {
+      if (teamId) {
+        saveLevelProgress({ teamId, levelId: 'level1', status: 'completed' }).catch(() => {});
+      }
       setTimeout(() => setShowSuccess(true), 300);
     } else {
+      if (teamId) {
+        saveLevelProgress({ teamId, levelId: 'level1', status: 'failed' }).catch(() => {});
+      }
       triggerCooldown();
       setShowError(true);
     }

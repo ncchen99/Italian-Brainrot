@@ -40,3 +40,7 @@ export function getRouteByScanCode(rawCode) {
   const expandedCode = SCAN_CODE_ALIASES[normalized] || normalized;
   return SCAN_CODE_ROUTES[expandedCode] || null;
 }
+
+export function getIntroRouteForLevel(levelId) {
+  return `/intro/${levelId}`;
+}

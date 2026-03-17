@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { getLevelCooldown, setLevelCooldown } from '../services/progressService';
 
 const COOLDOWN_DURATION_MS = 5 * 60 * 1000;
 
@@ -29,19 +31,38 @@ export function formatCooldownTime(remainingMs) {
 }
 
 export default function useLevelCooldown(levelId, durationMs = COOLDOWN_DURATION_MS) {
-  const [cooldownUntil, setCooldownUntil] = useState(null);
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
+  const [cooldownUntil, setCooldownUntil] = useState(() => {
     const stored = readStoredExpiry(levelId);
     const current = Date.now();
-
     if (stored && stored > current) {
-      setCooldownUntil(stored);
-    } else if (stored) {
+      return stored;
+    }
+    if (stored) {
       window.localStorage.removeItem(getStorageKey(levelId));
     }
-  }, [levelId]);
+    return null;
+  });
+  const [now, setNow] = useState(() => Date.now());
+  const { teamId } = useAppSession();
+
+  useEffect(() => {
+    let isMounted = true;
+    const current = Date.now();
+
+    if (teamId) {
+      getLevelCooldown({ teamId, levelId })
+        .then((cloudExpiry) => {
+          if (!isMounted || !cloudExpiry || cloudExpiry <= current) return;
+          setCooldownUntil(cloudExpiry);
+          window.localStorage.setItem(getStorageKey(levelId), String(cloudExpiry));
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [levelId, teamId]);
 
   useEffect(() => {
     if (!cooldownUntil) return undefined;
@@ -64,7 +85,10 @@ export default function useLevelCooldown(levelId, durationMs = COOLDOWN_DURATION
     window.localStorage.setItem(getStorageKey(levelId), String(expiry));
     setCooldownUntil(expiry);
     setNow(Date.now());
-  }, [durationMs, levelId]);
+    if (teamId) {
+      setLevelCooldown({ teamId, levelId, cooldownUntil: expiry }).catch(() => {});
+    }
+  }, [durationMs, levelId, teamId]);
 
   const remainingMs = useMemo(() => {
     if (!cooldownUntil) return 0;

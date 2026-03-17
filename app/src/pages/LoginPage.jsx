@@ -1,16 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uiImages } from '../assets';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { requestAppFullscreen } from '../services/fullscreenService';
 
 export default function LoginPage() {
   const [teamName, setTeamName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorText, setErrorText] = useState('');
   const navigate = useNavigate();
+  const { bindTeamProfile } = useAppSession();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (teamName.trim().length > 0) {
-      // Allow saving team name context in later implementation
+    const safeTeamName = teamName.trim();
+    if (!safeTeamName) return;
+
+    setIsSubmitting(true);
+    setErrorText('');
+
+    try {
+      await bindTeamProfile(safeTeamName);
+      await requestAppFullscreen();
       navigate('/dashboard');
+    } catch (error) {
+      setErrorText(error?.message || '登入失敗，請稍後再試。');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -68,13 +84,20 @@ export default function LoginPage() {
             />
           </div>
 
+          {errorText ? (
+            <p className="text-sm text-pink-300 bg-pink-900/30 border border-pink-500/40 rounded-xl px-3 py-2 mb-4">
+              {errorText}
+            </p>
+          ) : null}
+
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full relative group overflow-hidden rounded-2xl bg-[#F59E0B] border-b-4 border-[#B45309] active:border-b-0 active:translate-y-1 transition-all duration-150 py-4 shadow-[0_0_20px_rgba(245,158,11,0.35)]"
           >
             <div className="absolute inset-0 w-full h-full bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
             <span className="relative text-white font-bold text-xl drop-shadow-md flex items-center justify-center gap-2">
-              出發拯救校園
+              {isSubmitting ? '登入中...' : '出發拯救校園'}
             </span>
           </button>
         </form>

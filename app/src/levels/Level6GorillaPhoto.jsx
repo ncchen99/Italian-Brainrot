@@ -1,30 +1,85 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera } from 'lucide-react';
 import Modal from '../components/Modal';
 import { characterAssets } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { uploadImageToFirebaseStorage } from '../services/uploadService';
+import { saveLevelProgress, saveUploadRecord } from '../services/progressService';
 
 export default function Level6GorillaPhoto() {
   const navigate = useNavigate();
   const [photoUrl, setPhotoUrl] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState('idle');
+  const [submitError, setSubmitError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
   const fileInputRef = useRef(null);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level6');
+  const { teamId } = useAppSession();
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (photoUrl) {
+        URL.revokeObjectURL(photoUrl);
+      }
       const url = URL.createObjectURL(file);
       setPhotoUrl(url);
+      setPhotoFile(file);
+      setUploadStatus('idle');
+      setSubmitError('');
     }
   };
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    return () => {
+      if (photoUrl) {
+        URL.revokeObjectURL(photoUrl);
+      }
+    };
+  }, [photoUrl]);
+
+  const handleSubmit = async () => {
     if (isCoolingDown) return;
 
-    if (photoUrl) {
+    if (photoFile && photoUrl) {
+      setUploadStatus('uploading');
+      setSubmitError('');
+
+      try {
+        const uploadResult = await uploadImageToFirebaseStorage({
+          file: photoFile,
+          teamId: teamId || 'unknown-team',
+          levelId: 'level6'
+        });
+
+        if (teamId) {
+          await saveUploadRecord({
+            teamId,
+            levelId: 'level6',
+            imageUrl: uploadResult.publicUrl,
+            objectKey: uploadResult.objectKey
+          });
+          await saveLevelProgress({
+            teamId,
+            levelId: 'level6',
+            status: 'completed',
+            payload: {
+              proofImageUrl: uploadResult.publicUrl
+            }
+          });
+        }
+
+        setUploadStatus('success');
+      } catch (error) {
+        setUploadStatus('error');
+        setSubmitError(error?.message || '圖片上傳失敗，請稍後再試。');
+        return;
+      }
+
       setShowSuccess(true);
       return;
     }
@@ -75,15 +130,20 @@ export default function Level6GorillaPhoto() {
 
         <button
           onClick={handleSubmit}
-          disabled={isCoolingDown}
+          disabled={isCoolingDown || uploadStatus === 'uploading'}
           className={`w-full py-4 rounded-2xl font-bold shadow-lg text-white transition-all duration-300 active:scale-95 border-b-4 flex items-center justify-center gap-2
             ${photoUrl 
               ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6d28d9] border-[#4c1d95] shadow-[0_0_20px_rgba(139,92,246,0.5)]' 
               : 'bg-gray-700 border-gray-900'}
           `}
         >
-          送出認證！ ✅
+          {uploadStatus === 'uploading' ? '上傳中...' : '送出認證！ ✅'}
         </button>
+        {submitError ? (
+          <p className="mt-3 text-sm text-pink-200 bg-pink-900/40 border border-pink-500/40 rounded-xl px-3 py-2 w-full">
+            {submitError}
+          </p>
+        ) : null}
 
       </div>
 

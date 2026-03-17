@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DragDropContainer from '../components/DragDropContainer';
 import Modal from '../components/Modal';
 import { ingredientImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { saveLevelProgress } from '../services/progressService';
 
 export default function Level4WaterBalloonSort() {
   const navigate = useNavigate();
@@ -11,14 +13,15 @@ export default function Level4WaterBalloonSort() {
   const [showError, setShowError] = useState(false);
   const [slots, setSlots] = useState([]);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level4');
+  const { teamId } = useAppSession();
 
   // Available water balloons
-  const items = [
+  const items = useMemo(() => ([
     { id: 'red', content: '🔴', color: '#EF4444' },
     { id: 'blue', content: '🔵', color: '#3B82F6' },
     { id: 'yellow', content: '🟡', color: '#EAB308' },
     { id: 'green', content: '🟢', color: '#22C55E' }
-  ];
+  ]), []);
 
   const handleSubmit = () => {
     if (isCoolingDown) return;
@@ -39,8 +42,14 @@ export default function Level4WaterBalloonSort() {
     }
 
     if (isCorrect) {
+      if (teamId) {
+        saveLevelProgress({ teamId, levelId: 'level4', status: 'completed' }).catch(() => {});
+      }
       setTimeout(() => setShowSuccess(true), 500);
     } else {
+      if (teamId) {
+        saveLevelProgress({ teamId, levelId: 'level4', status: 'failed' }).catch(() => {});
+      }
       triggerCooldown();
       setTimeout(() => setShowError(true), 500);
     }

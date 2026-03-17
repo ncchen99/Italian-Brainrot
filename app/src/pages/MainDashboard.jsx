@@ -3,12 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import BottomNavigationBar from '../components/BottomNavigationBar';
 import CountdownTimer from '../components/CountdownTimer';
 import ItemCard from '../components/ItemCard';
+import QRCodeScannerModal from '../components/QRCodeScannerModal';
 import { ingredientImages, uiImages } from '../assets';
 import { getRouteByScanCode } from '../scanCodes';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { requestAppFullscreen, isFullscreenActive } from '../services/fullscreenService';
+import { grantScanAccess } from '../services/scanAccessService';
+import { markRecentScan } from '../services/progressService';
 
 export default function MainDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('backpack');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const [fullscreenHint, setFullscreenHint] = useState(false);
+  const { teamName, teamId } = useAppSession();
   
   // Mock tracking context
   const targetIngredients = [
@@ -33,18 +42,36 @@ export default function MainDashboard() {
       return a.originalIndex - b.originalIndex;
     });
   const collectedIngredients = sortedIngredients.filter((item) => item.isCollected);
-  const teamName = "閃電特攻隊";
+  const displayTeamName = teamName || '未命名小隊';
 
   const handleScanClick = () => {
-    // In real app, scanner should pass QR payload into getRouteByScanCode
-    const scanInput = prompt("Simulate Scan (Enter QR code or 1-8):", "1");
-    const targetRoute = getRouteByScanCode(scanInput);
+    setScanError('');
+    setScannerOpen(true);
+  };
 
-    if (targetRoute) {
-      navigate(targetRoute);
-    } else {
-      alert('無效 QR Code，請重新掃描正確關卡。');
+  const handleScanResult = async (scanInput) => {
+    const targetRoute = getRouteByScanCode(scanInput);
+    if (!targetRoute) {
+      setScanError('無效 QR Code，請重新掃描正確關卡。');
+      return;
     }
+
+    grantScanAccess(targetRoute);
+    if (teamId) {
+      markRecentScan({ teamId, route: targetRoute, code: String(scanInput || '') }).catch(() => {});
+    }
+
+    setScannerOpen(false);
+    navigate(targetRoute);
+  };
+
+  const handleTryFullscreen = async () => {
+    const success = await requestAppFullscreen();
+    if (!success) {
+      setFullscreenHint(true);
+      return;
+    }
+    setFullscreenHint(false);
   };
 
   return (
@@ -59,7 +86,7 @@ export default function MainDashboard() {
       <div className="relative z-10 w-full max-w-sm flex justify-between items-center bg-[#151A30]/90 p-4 rounded-3xl border border-white/10 shadow-lg mb-6 isolate">
         <div>
           <div className="text-xs text-gray-400 font-bold mb-1">目前小隊</div>
-          <div className="text-[#FBBF24] font-bold text-lg">{teamName}</div>
+          <div className="text-[#FBBF24] font-bold text-lg">{displayTeamName}</div>
         </div>
         <div className="flex flex-col items-end">
           <div className="text-xs text-gray-400 font-bold mb-1">剩餘時間</div>
@@ -69,6 +96,14 @@ export default function MainDashboard() {
 
       {activeTab === 'backpack' ? (
         <div className="relative z-10 w-full max-w-sm w-full animate-in fade-in duration-300">
+          {!isFullscreenActive() || fullscreenHint ? (
+            <button
+              onClick={handleTryFullscreen}
+              className="w-full mb-4 text-sm rounded-xl bg-[#7C5CFC]/20 border border-[#7C5CFC]/40 px-3 py-2 text-[#E9D5FF]"
+            >
+              建議切換全螢幕以獲得最佳體驗（點此嘗試）
+            </button>
+          ) : null}
           
           {/* Progress Icons */}
           <div className="bg-[#151A30]/90 p-4 rounded-3xl border border-white/10 shadow-lg mb-6">
@@ -154,6 +189,16 @@ export default function MainDashboard() {
         onTabChange={setActiveTab} 
         onScanClick={handleScanClick}
       />
+      <QRCodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleScanResult}
+      />
+      {scanError ? (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 max-w-sm w-[90%] rounded-xl border border-pink-500/40 bg-pink-900/50 px-3 py-2 text-sm text-pink-100">
+          {scanError}
+        </div>
+      ) : null}
     </div>
   );
 }
