@@ -13,7 +13,7 @@ export default function Level4WaterBalloonSort() {
   const [showError, setShowError] = useState(false);
   const [slots, setSlots] = useState([]);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level4');
-  const { teamId } = useAppSession();
+  const { teamId, activeChallenge } = useAppSession();
 
   // Available water balloons
   const items = useMemo(() => ([
@@ -42,13 +42,13 @@ export default function Level4WaterBalloonSort() {
     }
 
     if (isCorrect) {
-      if (teamId) {
-        saveLevelProgress({ teamId, levelId: 'level4', status: 'completed' }).catch(() => {});
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({ teamId, sessionId: activeChallenge.id, levelId: 'level4', status: 'completed' }).catch(() => {});
       }
       setTimeout(() => setShowSuccess(true), 500);
     } else {
-      if (teamId) {
-        saveLevelProgress({ teamId, levelId: 'level4', status: 'failed' }).catch(() => {});
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({ teamId, sessionId: activeChallenge.id, levelId: 'level4', status: 'failed' }).catch(() => {});
       }
       triggerCooldown();
       setTimeout(() => setShowError(true), 500);

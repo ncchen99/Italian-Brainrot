@@ -4,6 +4,8 @@ import NumericKeypad from '../components/NumericKeypad';
 import Modal from '../components/Modal';
 import { uiImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { saveLevelProgress } from '../services/progressService';
 
 export default function Level7AntennaSync() {
   const navigate = useNavigate();
@@ -11,6 +13,7 @@ export default function Level7AntennaSync() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level7');
+  const { teamId, activeChallenge } = useAppSession();
   
   // Randomly assign team A or B (Red or Blue antenna)
   const [teamColor] = useState(() => (Math.random() > 0.5 ? 'red' : 'blue'));
@@ -30,8 +33,24 @@ export default function Level7AntennaSync() {
 
     // Demo correct code 888888
     if (syncCode === '888888') {
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({
+          teamId,
+          sessionId: activeChallenge.id,
+          levelId: 'level7',
+          status: 'completed'
+        }).catch(() => {});
+      }
       setShowSuccess(true);
     } else {
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({
+          teamId,
+          sessionId: activeChallenge.id,
+          levelId: 'level7',
+          status: 'failed'
+        }).catch(() => {});
+      }
       triggerCooldown();
       setShowError(true);
       setSyncCode('');

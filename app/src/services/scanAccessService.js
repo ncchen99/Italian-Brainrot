@@ -35,3 +35,7 @@ export function hasScanAccess(route) {
   }
   return true;
 }
+
+export function clearScanAccess() {
+  window.sessionStorage.removeItem(STORAGE_KEY);
+}

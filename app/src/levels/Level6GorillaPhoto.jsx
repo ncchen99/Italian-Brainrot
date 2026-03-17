@@ -19,7 +19,7 @@ export default function Level6GorillaPhoto() {
   const [showError, setShowError] = useState(false);
   const fileInputRef = useRef(null);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level6');
-  const { teamId } = useAppSession();
+  const { teamId, activeChallenge } = useAppSession();
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
@@ -72,6 +72,7 @@ export default function Level6GorillaPhoto() {
           });
           await saveLevelProgress({
             teamId: effectiveTeamId,
+            sessionId: activeChallenge?.id || null,
             levelId: 'level6',
             status: 'completed',
             payload: {
@@ -96,6 +97,14 @@ export default function Level6GorillaPhoto() {
       return;
     }
 
+    if (teamId && activeChallenge?.id) {
+      saveLevelProgress({
+        teamId,
+        sessionId: activeChallenge.id,
+        levelId: 'level6',
+        status: 'failed'
+      }).catch(() => {});
+    }
     triggerCooldown();
     setShowError(true);
   };

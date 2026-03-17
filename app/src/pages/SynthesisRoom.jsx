@@ -1,25 +1,98 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DragDropContainer from '../components/DragDropContainer';
 import Modal from '../components/Modal';
 import { ingredientImages, uiImages } from '../assets';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { getSynthesisSupportPlan } from '../services/progressService';
+
+const INGREDIENT_META = [
+  { id: 'flour', imageSrc: ingredientImages.premiumFlour, label: '陳年特級麵粉', color: '#FBBF24' },
+  { id: 'water', imageSrc: ingredientImages.pureSpringWater, label: '純淨山泉水', color: '#38BDF8' },
+  { id: 'tomato', imageSrc: ingredientImages.holyTomato, label: '神聖番茄', color: '#EF4444' },
+  { id: 'cheese', imageSrc: ingredientImages.richParmesanCheese, label: '濃郁帕瑪森起司', color: '#FBBF24' },
+  { id: 'basil', imageSrc: ingredientImages.magicBasilLeaf, label: '魔法羅勒葉', color: '#4ADE80' }
+];
+
+const INGREDIENT_NAME_MAP = INGREDIENT_META.reduce((acc, item) => {
+  acc[item.id] = item.label;
+  return acc;
+}, {});
+
+function formatTeamName(candidate, index = 0) {
+  if (candidate?.teamName) return candidate.teamName;
+  if (candidate?.teamId) return `第 ${candidate.teamId.slice(-4)} 隊`;
+  return `第 ${index + 1} 隊`;
+}
 
 export default function SynthesisRoom() {
   const navigate = useNavigate();
   const [showEnding, setShowEnding] = useState(false);
+  const { teamId, activeChallenge } = useAppSession();
+  const [loading, setLoading] = useState(true);
+  const [supportPlan, setSupportPlan] = useState({
+    myIngredients: [],
+    missingIngredients: [],
+    complementaryTeams: [],
+    rescueTeam: null,
+    globalMissingIngredients: []
+  });
+  const [refreshToken, setRefreshToken] = useState(0);
 
-  // Five collected materials ready for synthesis
-  const collectedItems = [
-    { id: 'flour', imageSrc: ingredientImages.premiumFlour, label: 'Flour', color: '#FBBF24' },
-    { id: 'water', imageSrc: ingredientImages.pureSpringWater, label: 'Water', color: '#38BDF8' },
-    { id: 'tomato', imageSrc: ingredientImages.holyTomato, label: 'Tomato', color: '#EF4444' },
-    { id: 'cheese', imageSrc: ingredientImages.richParmesanCheese, label: 'Cheese', color: '#FBBF24' },
-    { id: 'basil', imageSrc: ingredientImages.magicBasilLeaf, label: 'Basil', color: '#4ADE80' }
-  ];
+  useEffect(() => {
+    let alive = true;
+    if (!teamId || !activeChallenge?.id) {
+      setSupportPlan({
+        myIngredients: [],
+        missingIngredients: INGREDIENT_META.map((item) => item.id),
+        complementaryTeams: [],
+        rescueTeam: null,
+        globalMissingIngredients: []
+      });
+      setLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
+
+    setLoading(true);
+    getSynthesisSupportPlan({
+      teamId,
+      sessionId: activeChallenge.id
+    }).then((plan) => {
+      if (!alive) return;
+      setSupportPlan(plan);
+      setLoading(false);
+    }).catch(() => {
+      if (!alive) return;
+      setSupportPlan({
+        myIngredients: [],
+        missingIngredients: INGREDIENT_META.map((item) => item.id),
+        complementaryTeams: [],
+        rescueTeam: null,
+        globalMissingIngredients: []
+      });
+      setLoading(false);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [teamId, activeChallenge?.id, refreshToken]);
+
+  const collectedItems = useMemo(
+    () => INGREDIENT_META.filter((item) => supportPlan.myIngredients.includes(item.id)),
+    [supportPlan.myIngredients]
+  );
+  const missingNames = supportPlan.missingIngredients.map((id) => INGREDIENT_NAME_MAP[id] || id);
+  const globalMissingNames = supportPlan.globalMissingIngredients.map((id) => INGREDIENT_NAME_MAP[id] || id);
+  const suggestedAlly = supportPlan.complementaryTeams[0] || null;
+  const canSynthesize = supportPlan.missingIngredients.length === 0;
 
   const handleSynthesis = (slots) => {
-    // All 5 materials are required.
-    const filledCount = slots.filter(s => s !== null).length;
+    if (!canSynthesize) return;
+
+    const filledCount = slots.filter((s) => s !== null).length;
     if (filledCount === 5) {
       setTimeout(() => setShowEnding(true), 1500);
     }
@@ -36,11 +109,49 @@ export default function SynthesisRoom() {
          <h1 className="text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-[#4ADE80] to-[#38BDF8] drop-shadow-md">
            合成協作站
          </h1>
-         <p className="text-gray-400 text-sm text-center mb-8">集齊五種食材後，將它們放入合成器進行中繼加工！</p>
+         <p className="text-gray-400 text-sm text-center mb-4">僅顯示你們小隊實際持有的食材，集齊五種才能合成！</p>
+         <button
+           type="button"
+           className="text-xs rounded-lg bg-[#7C5CFC]/20 border border-[#7C5CFC]/40 px-3 py-1.5 text-[#E9D5FF]"
+           onClick={() => setRefreshToken((value) => value + 1)}
+         >
+           重新檢查合作狀態
+         </button>
       </div>
 
       <div className="flex-1 w-full max-w-sm mx-auto px-4 flex flex-col relative z-10">
-        
+        {loading ? (
+          <div className="mb-4 rounded-2xl border border-white/10 bg-[#151A30]/80 px-4 py-3 text-sm text-gray-300">
+            正在檢查你的小隊食材與可合作隊伍...
+          </div>
+        ) : null}
+
+        {!loading && !canSynthesize ? (
+          <div className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-100">
+            目前持有 {collectedItems.length}/5 種食材，缺少：{missingNames.join('、')}
+          </div>
+        ) : null}
+
+        {!loading && !canSynthesize && suggestedAlly ? (
+          <div className="mb-4 rounded-2xl border border-[#4ADE80]/40 bg-[#14532d]/25 px-4 py-3 text-sm text-green-100">
+            發現盟友！請找 <span className="font-bold">{formatTeamName(suggestedAlly, 0)}</span> 合作，
+            他們可補上：{suggestedAlly.provides.map((id) => INGREDIENT_NAME_MAP[id] || id).join('、')}
+          </div>
+        ) : null}
+
+        {!loading && !canSynthesize && !suggestedAlly && supportPlan.rescueTeam ? (
+          <div className="mb-4 rounded-2xl border border-pink-400/50 bg-pink-900/25 px-4 py-3 text-sm text-pink-100">
+            保底救援啟動！快去找 <span className="font-bold">{formatTeamName(supportPlan.rescueTeam, 0)}</span>，
+            他們有多餘食材可以協助你們完成披薩加工。
+          </div>
+        ) : null}
+
+        {!loading && !canSynthesize && globalMissingNames.length > 0 ? (
+          <div className="mb-4 rounded-2xl border border-sky-400/50 bg-sky-900/20 px-4 py-3 text-sm text-sky-100">
+            全體合作提示：目前看起來全場都缺少 {globalMissingNames.join('、')}，請向關主回報並啟動全體大合作解謎。
+          </div>
+        ) : null}
+
         {/* The Pizza Pan Area */}
         <div className="bg-[#1A1D2E]/50 backdrop-blur-md rounded-[3rem] border border-[#7C5CFC]/30 p-6 shadow-[0_0_50px_rgba(124,92,252,0.15)] flex flex-col items-center">
           

@@ -4,6 +4,8 @@ import NumericKeypad from '../components/NumericKeypad';
 import Modal from '../components/Modal';
 import { ingredientImages, uiImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { saveLevelProgress } from '../services/progressService';
 
 export default function Level5TimeInput() {
   const navigate = useNavigate();
@@ -11,6 +13,7 @@ export default function Level5TimeInput() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level5');
+  const { teamId, activeChallenge } = useAppSession();
 
   const prevLocks = ["01:15", "02:30", "04:00", "05:45"];
   const correctTime = "0745"; // 07:45
@@ -29,8 +32,24 @@ export default function Level5TimeInput() {
     if (isCoolingDown) return;
 
     if (timeInput === correctTime) {
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({
+          teamId,
+          sessionId: activeChallenge.id,
+          levelId: 'level5',
+          status: 'completed'
+        }).catch(() => {});
+      }
       setShowSuccess(true);
     } else {
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({
+          teamId,
+          sessionId: activeChallenge.id,
+          levelId: 'level5',
+          status: 'failed'
+        }).catch(() => {});
+      }
       triggerCooldown();
       setShowError(true);
       setTimeInput('');

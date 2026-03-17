@@ -4,6 +4,8 @@ import CountdownTimer from '../components/CountdownTimer';
 import Modal from '../components/Modal';
 import { ingredientImages, characterAssets, sfx } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { saveLevelProgress } from '../services/progressService';
 
 export default function Level3TapChallenge() {
   const navigate = useNavigate();
@@ -12,6 +14,7 @@ export default function Level3TapChallenge() {
   const inflateAudioRef = useRef(null);
   const popAudioRef = useRef(null);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level3');
+  const { teamId, activeChallenge } = useAppSession();
   
   const targetTaps = 50;
   const currentLevelColor = "#4ADE80";
@@ -45,6 +48,14 @@ export default function Level3TapChallenge() {
       setTaps(prev => {
         const newTaps = prev + 1;
         if (newTaps >= targetTaps) {
+          if (teamId && activeChallenge?.id) {
+            saveLevelProgress({
+              teamId,
+              sessionId: activeChallenge.id,
+              levelId: 'level3',
+              status: 'completed'
+            }).catch(() => {});
+          }
           setGameStatus('won');
         }
         return newTaps;
@@ -55,12 +66,20 @@ export default function Level3TapChallenge() {
   const handleTimeUp = useCallback(() => {
     setGameStatus(prevStatus => {
       if (prevStatus === 'playing') {
+        if (teamId && activeChallenge?.id) {
+          saveLevelProgress({
+            teamId,
+            sessionId: activeChallenge.id,
+            levelId: 'level3',
+            status: 'failed'
+          }).catch(() => {});
+        }
         triggerCooldown();
         return 'lost';
       }
       return prevStatus;
     });
-  }, [triggerCooldown]);
+  }, [activeChallenge?.id, teamId, triggerCooldown]);
 
   const progressPercentage = Math.min((taps / targetTaps) * 100, 100);
 

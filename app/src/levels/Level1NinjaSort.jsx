@@ -13,7 +13,7 @@ export default function Level1NinjaSort() {
   const [showError, setShowError] = useState(false);
   const [slots, setSlots] = useState([]);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level1');
-  const { teamId } = useAppSession();
+  const { teamId, activeChallenge } = useAppSession();
 
   // Available ninjutsu signs
   const items = useMemo(() => ([
@@ -32,13 +32,13 @@ export default function Level1NinjaSort() {
     const isCorrect = currentSequence.every((id, index) => id === correctSequence[index]);
 
     if (isCorrect) {
-      if (teamId) {
-        saveLevelProgress({ teamId, levelId: 'level1', status: 'completed' }).catch(() => {});
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({ teamId, sessionId: activeChallenge.id, levelId: 'level1', status: 'completed' }).catch(() => {});
       }
       setTimeout(() => setShowSuccess(true), 300);
     } else {
-      if (teamId) {
-        saveLevelProgress({ teamId, levelId: 'level1', status: 'failed' }).catch(() => {});
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({ teamId, sessionId: activeChallenge.id, levelId: 'level1', status: 'failed' }).catch(() => {});
       }
       triggerCooldown();
       setShowError(true);

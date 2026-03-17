@@ -31,30 +31,41 @@ export function formatCooldownTime(remainingMs) {
 }
 
 export default function useLevelCooldown(levelId, durationMs = COOLDOWN_DURATION_MS) {
+  const { teamId, activeChallenge } = useAppSession();
+  const sessionScopedLevelId = activeChallenge?.id ? `${activeChallenge.id}:${levelId}` : levelId;
   const [cooldownUntil, setCooldownUntil] = useState(() => {
-    const stored = readStoredExpiry(levelId);
+    const stored = readStoredExpiry(sessionScopedLevelId);
     const current = Date.now();
     if (stored && stored > current) {
       return stored;
     }
     if (stored) {
-      window.localStorage.removeItem(getStorageKey(levelId));
+      window.localStorage.removeItem(getStorageKey(sessionScopedLevelId));
     }
     return null;
   });
   const [now, setNow] = useState(() => Date.now());
-  const { teamId } = useAppSession();
+
+  useEffect(() => {
+    const stored = readStoredExpiry(sessionScopedLevelId);
+    const current = Date.now();
+    if (stored && stored > current) {
+      setCooldownUntil(stored);
+      return;
+    }
+    setCooldownUntil(null);
+  }, [sessionScopedLevelId]);
 
   useEffect(() => {
     let isMounted = true;
     const current = Date.now();
 
     if (teamId) {
-      getLevelCooldown({ teamId, levelId })
+      getLevelCooldown({ teamId, sessionId: activeChallenge?.id || null, levelId })
         .then((cloudExpiry) => {
           if (!isMounted || !cloudExpiry || cloudExpiry <= current) return;
           setCooldownUntil(cloudExpiry);
-          window.localStorage.setItem(getStorageKey(levelId), String(cloudExpiry));
+          window.localStorage.setItem(getStorageKey(sessionScopedLevelId), String(cloudExpiry));
         })
         .catch(() => {});
     }
@@ -62,7 +73,7 @@ export default function useLevelCooldown(levelId, durationMs = COOLDOWN_DURATION
     return () => {
       isMounted = false;
     };
-  }, [levelId, teamId]);
+  }, [activeChallenge?.id, levelId, sessionScopedLevelId, teamId]);
 
   useEffect(() => {
     if (!cooldownUntil) return undefined;
@@ -72,23 +83,23 @@ export default function useLevelCooldown(levelId, durationMs = COOLDOWN_DURATION
       setNow(current);
 
       if (current >= cooldownUntil) {
-        window.localStorage.removeItem(getStorageKey(levelId));
+        window.localStorage.removeItem(getStorageKey(sessionScopedLevelId));
         setCooldownUntil(null);
       }
     }, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [cooldownUntil, levelId]);
+  }, [cooldownUntil, sessionScopedLevelId]);
 
   const triggerCooldown = useCallback(() => {
     const expiry = Date.now() + durationMs;
-    window.localStorage.setItem(getStorageKey(levelId), String(expiry));
+    window.localStorage.setItem(getStorageKey(sessionScopedLevelId), String(expiry));
     setCooldownUntil(expiry);
     setNow(Date.now());
     if (teamId) {
-      setLevelCooldown({ teamId, levelId, cooldownUntil: expiry }).catch(() => {});
+      setLevelCooldown({ teamId, sessionId: activeChallenge?.id || null, levelId, cooldownUntil: expiry }).catch(() => {});
     }
-  }, [durationMs, levelId, teamId]);
+  }, [activeChallenge?.id, durationMs, levelId, sessionScopedLevelId, teamId]);
 
   const remainingMs = useMemo(() => {
     if (!cooldownUntil) return 0;
