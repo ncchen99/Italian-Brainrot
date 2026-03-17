@@ -32,13 +32,13 @@ export default function Level1NinjaSort() {
     const isCorrect = currentSequence.every((id, index) => id === correctSequence[index]);
 
     if (isCorrect) {
-      if (teamId && activeChallenge?.id) {
-        saveLevelProgress({ teamId, sessionId: activeChallenge.id, levelId: 'level1', status: 'completed' }).catch(() => {});
+      if (teamId) {
+        saveLevelProgress({ teamId, sessionId: activeChallenge?.id || null, levelId: 'level1', status: 'completed' }).catch(() => {});
       }
       setTimeout(() => setShowSuccess(true), 300);
     } else {
-      if (teamId && activeChallenge?.id) {
-        saveLevelProgress({ teamId, sessionId: activeChallenge.id, levelId: 'level1', status: 'failed' }).catch(() => {});
+      if (teamId) {
+        saveLevelProgress({ teamId, sessionId: activeChallenge?.id || null, levelId: 'level1', status: 'failed' }).catch(() => {});
       }
       triggerCooldown();
       setShowError(true);

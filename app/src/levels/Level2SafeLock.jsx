@@ -31,20 +31,20 @@ export default function Level2SafeLock() {
     // For demo, any 4 digits work, or specifically "1234"
     if (passcode.length === 4) {
       if (passcode === '1234') {
-        if (teamId && activeChallenge?.id) {
+        if (teamId) {
           saveLevelProgress({
             teamId,
-            sessionId: activeChallenge.id,
+            sessionId: activeChallenge?.id || null,
             levelId: 'level2',
             status: 'completed'
           }).catch(() => {});
         }
         setShowSuccess(true);
       } else {
-        if (teamId && activeChallenge?.id) {
+        if (teamId) {
           saveLevelProgress({
             teamId,
-            sessionId: activeChallenge.id,
+            sessionId: activeChallenge?.id || null,
             levelId: 'level2',
             status: 'failed'
           }).catch(() => {});

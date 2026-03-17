@@ -37,13 +37,21 @@ export async function saveLevelProgress({
 
   if (!isFirebaseEnabled || !db) return;
 
-  const progressRef = sessionId
-    ? doc(db, 'teams', teamId, 'challengeSessions', sessionId, 'progress', levelId)
+  let resolvedSessionId = sessionId;
+  if (!resolvedSessionId) {
+    const activeSession = await getActiveChallengeSession({ teamId }).catch(() => null);
+    if (activeSession?.id) {
+      resolvedSessionId = activeSession.id;
+    }
+  }
+
+  const progressRef = resolvedSessionId
+    ? doc(db, 'teams', teamId, 'challengeSessions', resolvedSessionId, 'progress', levelId)
     : doc(db, 'teams', teamId, 'progress', levelId);
   await setDoc(
     progressRef,
     {
-      sessionId,
+      sessionId: resolvedSessionId || null,
       levelId,
       status,
       updatedAt: serverTimestamp(),

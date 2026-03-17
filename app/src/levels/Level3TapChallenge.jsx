@@ -48,10 +48,10 @@ export default function Level3TapChallenge() {
       setTaps(prev => {
         const newTaps = prev + 1;
         if (newTaps >= targetTaps) {
-          if (teamId && activeChallenge?.id) {
+          if (teamId) {
             saveLevelProgress({
               teamId,
-              sessionId: activeChallenge.id,
+              sessionId: activeChallenge?.id || null,
               levelId: 'level3',
               status: 'completed'
             }).catch(() => {});
@@ -66,10 +66,10 @@ export default function Level3TapChallenge() {
   const handleTimeUp = useCallback(() => {
     setGameStatus(prevStatus => {
       if (prevStatus === 'playing') {
-        if (teamId && activeChallenge?.id) {
+        if (teamId) {
           saveLevelProgress({
             teamId,
-            sessionId: activeChallenge.id,
+            sessionId: activeChallenge?.id || null,
             levelId: 'level3',
             status: 'failed'
           }).catch(() => {});

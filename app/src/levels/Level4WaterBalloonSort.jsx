@@ -42,13 +42,13 @@ export default function Level4WaterBalloonSort() {
     }
 
     if (isCorrect) {
-      if (teamId && activeChallenge?.id) {
-        saveLevelProgress({ teamId, sessionId: activeChallenge.id, levelId: 'level4', status: 'completed' }).catch(() => {});
+      if (teamId) {
+        saveLevelProgress({ teamId, sessionId: activeChallenge?.id || null, levelId: 'level4', status: 'completed' }).catch(() => {});
       }
       setTimeout(() => setShowSuccess(true), 500);
     } else {
-      if (teamId && activeChallenge?.id) {
-        saveLevelProgress({ teamId, sessionId: activeChallenge.id, levelId: 'level4', status: 'failed' }).catch(() => {});
+      if (teamId) {
+        saveLevelProgress({ teamId, sessionId: activeChallenge?.id || null, levelId: 'level4', status: 'failed' }).catch(() => {});
       }
       triggerCooldown();
       setTimeout(() => setShowError(true), 500);

@@ -32,20 +32,20 @@ export default function Level5TimeInput() {
     if (isCoolingDown) return;
 
     if (timeInput === correctTime) {
-      if (teamId && activeChallenge?.id) {
+      if (teamId) {
         saveLevelProgress({
           teamId,
-          sessionId: activeChallenge.id,
+          sessionId: activeChallenge?.id || null,
           levelId: 'level5',
           status: 'completed'
         }).catch(() => {});
       }
       setShowSuccess(true);
     } else {
-      if (teamId && activeChallenge?.id) {
+      if (teamId) {
         saveLevelProgress({
           teamId,
-          sessionId: activeChallenge.id,
+          sessionId: activeChallenge?.id || null,
           levelId: 'level5',
           status: 'failed'
         }).catch(() => {});
