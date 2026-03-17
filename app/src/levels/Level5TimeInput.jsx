@@ -72,7 +72,7 @@ export default function Level5TimeInput() {
         <div className="bg-[#0D0F1A] border-l-4 border-[#FBBF24] p-4 rounded-r-xl mb-6 shadow-md text-sm text-gray-200">
           <p className="font-bold text-[#FBBF24] mb-2">⏳ 鬧鐘數列解謎：</p>
           <p className="mb-2">前四道鎖顯示的時間：</p>
-          <div className="flex justify-between px-2 text-[#4ADE80] font-mono text-lg font-bold mb-4 drop-shadow-md">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 px-2 text-center text-[#4ADE80] font-mono text-base sm:text-lg font-bold mb-4 drop-shadow-md">
             {prevLocks.map((t, i) => <span key={i}>{t}</span>)}
           </div>
           <p className="text-white font-bold">請問「第五道鎖」應該輸入幾點幾分才能完全解開？</p>
