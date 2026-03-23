@@ -1,7 +1,9 @@
 import React from 'react';
 import { Camera, Backpack, ClipboardList } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function BottomNavigationBar({ activeTab = 'backpack', onTabChange, onScanClick }) {
+  const { t } = useTranslation();
   return (
     <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 px-4 pb-6 pt-2 pointer-events-none">
       <div className="relative flex justify-between items-center bg-[#151A30]/85 backdrop-blur-md rounded-3xl p-2 shadow-2xl border border-white/10 pointer-events-auto">
@@ -12,7 +14,7 @@ export default function BottomNavigationBar({ activeTab = 'backpack', onTabChang
           className={`flex-1 flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 ${activeTab === 'backpack' ? 'text-[#7C5CFC] bg-white/5' : 'text-gray-400 hover:text-[#FBBF24]'}`}
         >
           <Backpack size={24} />
-          <span className="text-xs mt-1 font-bold">背包</span>
+          <span className="text-xs mt-1 font-bold">{t('nav.backpack')}</span>
         </button>
 
         {/* Center Scan Button */}
@@ -32,7 +34,7 @@ export default function BottomNavigationBar({ activeTab = 'backpack', onTabChang
           className={`flex-1 flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 ${activeTab === 'tasks' ? 'text-[#FBBF24] bg-white/5' : 'text-gray-400 hover:text-[#FBBF24]'}`}
         >
           <ClipboardList size={24} />
-          <span className="text-xs mt-1 font-bold">任務</span>
+          <span className="text-xs mt-1 font-bold">{t('nav.tasks')}</span>
         </button>
         
       </div>

@@ -6,6 +6,7 @@ import { uiImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { saveLevelProgress, getSessionProgress, getValidPartnerPasscodes } from '../services/progressService';
+import { useTranslation, Trans } from 'react-i18next';
 
 export default function Level7AntennaSync() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Level7AntennaSync() {
   const [submitting, setSubmitting] = useState(false);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level7');
   const { teamId, activeChallenge, loading: sessionLoading } = useAppSession();
+  const { t } = useTranslation();
   
   const [level7State, setLevel7State] = useState({ loading: true, antennaColor: null, passCode: null, missingFragment: false });
 
@@ -99,11 +101,11 @@ export default function Level7AntennaSync() {
 
   const currentLevelColor = "#EF4444";
   const myColorHex = level7State.antennaColor === 'red' ? '#EF4444' : '#3B82F6';
-  const myColorName = level7State.antennaColor === 'red' ? '紅色' : '藍色';
-  const partnerColorName = level7State.antennaColor === 'red' ? '藍色' : '紅色';
+  const myColorName = level7State.antennaColor === 'red' ? t('level7.colorRed') : t('level7.colorBlue');
+  const partnerColorName = level7State.antennaColor === 'red' ? t('level7.colorBlue') : t('level7.colorRed');
   const myCodePart = level7State.passCode || '---';
 
-  if (level7State.loading) return <div className="text-white flex-1 flex items-center justify-center">Loading...</div>;
+  if (level7State.loading) return <div className="text-white flex-1 flex items-center justify-center">{t('level7.loading')}</div>;
 
   return (
     <div className="w-full flex-1 flex flex-col justify-center animate-in slide-in-from-bottom duration-500">
@@ -112,20 +114,20 @@ export default function Level7AntennaSync() {
         <Modal 
           isOpen={true} 
           onClose={() => navigate('/dashboard')}
-          title="尚未獲得天線"
+          title={t('level7.noAntennaTitle')}
           type="warning"
           showCloseButton={true}
         >
-          <p className="text-white">現在還沒有天線的碎片！必須先完成前面的關卡找到碎片才能通訊。</p>
+          <p className="text-white">{t('level7.noAntennaMsg')}</p>
         </Modal>
       )}
 
       <div className="bg-[#1A1D2E]/80 backdrop-blur-md p-6 rounded-[2rem] border-2 shadow-2xl mb-8" style={{ borderColor: `${currentLevelColor}50`, opacity: level7State.missingFragment ? 0.3 : 1 }}>
         
-        <h2 className="text-[#FBBF24] font-bold text-xl text-center mb-4">潮鞋防衛戰（雙人合作）</h2>
+        <h2 className="text-[#FBBF24] font-bold text-xl text-center mb-4">{t('level7.title')}</h2>
         
         <div className="flex flex-col items-center mb-6">
-           <div className="text-sm text-gray-400 mb-1">你的天線裝置</div>
+           <div className="text-sm text-gray-400 mb-1">{t('level7.yourAntenna')}</div>
            <div 
              className="w-16 h-16 rounded-full flex items-center justify-center text-2xl border-4 animate-pulse mb-2 shadow-[0_0_15px_currentColor]"
              style={{ borderColor: myColorHex, color: myColorHex }}
@@ -133,14 +135,14 @@ export default function Level7AntennaSync() {
              <img src={level7State.antennaColor === 'red' ? uiImages.wifiRed : uiImages.wifiBlue} alt="Antenna" className="w-9 h-9 object-contain" />
            </div>
            <div className="font-bold text-lg" style={{ color: myColorHex }}>
-             {myColorName}訊號
+             {t('level7.signal', { color: myColorName })}
            </div>
         </div>
 
         <div className="bg-[#0D0F1A] border-l-4 p-4 rounded-r-xl mb-6 shadow-md text-sm text-gray-200" style={{ borderColor: myColorHex }}>
-          <p className="mb-2">1. 請尋找擁有<span className="font-bold">{partnerColorName}天線</span>的友隊</p>
-          <p className="mb-2">2. 你的密碼片段是：<span className="text-2xl font-mono block text-center my-2 font-bold tracking-widest">{myCodePart} _ _ _</span></p>
-          <p>3. 交換情報，組成完整的 6 碼！</p>
+          <p className="mb-2"><Trans i18nKey="level7.rule1" components={{ bold: <span className="font-bold" /> }} values={{ color: partnerColorName }} /></p>
+          <p className="mb-2">{t('level7.rule2')}<span className="text-2xl font-mono block text-center my-2 font-bold tracking-widest">{myCodePart} _ _ _</span></p>
+          <p>{t('level7.rule3')}</p>
         </div>
         
         {/* Passcode Display */}
@@ -162,16 +164,16 @@ export default function Level7AntennaSync() {
       <Modal 
         isOpen={showSuccess && !isCoolingDown} 
         onClose={() => navigate('/synthesis')}
-        title="防護罩破解成功"
+        title={t('level7.successTitle')}
         type="success"
       >
         <div className="flex flex-col items-center">
           <div className="w-24 h-24 mb-4 rounded-2xl bg-[#0B1224] border border-white/20 p-2 shadow-[0_0_20px_rgba(124,92,252,0.45)]">
-            <img src={uiImages.wifiFragments} alt="Wi-Fi 權限" className="w-full h-full object-cover rounded-xl" />
+            <img src={uiImages.wifiFragments} alt="Wi-Fi" className="w-full h-full object-cover rounded-xl" />
           </div>
-          <p className="text-white font-bold mb-2">啦啦鯊成功揍扁了魔王！</p>
+          <p className="text-white font-bold mb-2">{t('level7.successMsg1')}</p>
           <div className="bg-[#166534] text-green-100 p-3 rounded-xl border border-green-500 text-sm w-full font-bold">
-            獲得完整 Wi-Fi 權限！<br/>快前往「合成協作站」完成材料加工！
+            <Trans i18nKey="level7.successMsg2" components={[<br key="br" />]} />
           </div>
         </div>
       </Modal>
@@ -179,23 +181,23 @@ export default function Level7AntennaSync() {
       <Modal 
         isOpen={showError} 
         onClose={() => { setShowError(false); navigate('/dashboard'); }}
-        title="通訊失敗，進入冷卻"
+        title={t('level7.failTitle')}
         type="error"
         showCloseButton={true}
       >
-        <p className="text-white">防護罩依然堅固！請跟友隊確認密碼順序是否正確。</p>
-        <p className="text-sm text-pink-200 mt-2">冷卻時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level7.failMsg')}</p>
+        <p className="text-sm text-pink-200 mt-2">{t('level7.cooldownTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
       <Modal
         isOpen={isCoolingDown && !showError}
         onClose={() => navigate('/dashboard')}
-        title="關卡冷卻中"
+        title={t('level7.cooldownTitle')}
         type="warning"
         showCloseButton={true}
       >
-        <p className="text-white">這關暫時鎖定，先找其他隊伍交換情報吧。</p>
-        <p className="text-[#FBBF24] font-bold mt-2">剩餘時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level7.cooldownMsg')}</p>
+        <p className="text-[#FBBF24] font-bold mt-2">{t('level7.remTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
     </div>

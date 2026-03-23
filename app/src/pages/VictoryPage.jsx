@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uiImages } from '../assets';
+import { useTranslation } from 'react-i18next';
+import { useAppSession } from '../contexts/AppSessionContext';
 
 export default function VictoryPage() {
   const navigate = useNavigate();
   const [showCert, setShowCert] = useState(false);
   const certRef = useRef();
+  const { t } = useTranslation();
+  const { teamName } = useAppSession();
 
   useEffect(() => {
     // Reveal certificate with slight delay
@@ -14,7 +18,7 @@ export default function VictoryPage() {
 
   const handleDownload = () => {
     // In real app: use html2canvas or similar to save certRef.current
-    alert("證書儲存功能建置中...想像你的手機裡存了一張超酷的披薩大師證書！ 📸");
+    alert(t('victory.downloadAlert'));
   };
 
   return (
@@ -44,10 +48,10 @@ export default function VictoryPage() {
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
         
         <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-[#FBBF24] to-[#f59e0b] mb-2 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)] mt-4 text-center">
-          WORLD SAVED!
+          {t('victory.worldSaved')}
         </h1>
         <p className="text-gray-300 font-bold mb-8 text-center bg-black/50 px-4 py-1 rounded-full border border-white/10 backdrop-blur-md">
-          校園的和平被保衛了！
+          {t('victory.subtitle')}
         </p>
 
         {/* Certificate Card */}
@@ -59,36 +63,36 @@ export default function VictoryPage() {
         >
            {/* Ribbon Decor */}
            <div className="absolute -top-6 bg-[#EF4444] text-white px-6 py-2 rounded-t-xl font-bold border-2 border-red-800 shadow-md">
-             HERO CERTIFICATE
+             {t('victory.certTitle')}
            </div>
            
            <div className="w-full flex justify-between items-start mt-4 mb-6">
-             <img src={uiImages.ultimatePizza} alt="終極瑪格麗特披薩" className="w-16 h-16 object-contain drop-shadow-md" />
+             <img src={uiImages.ultimatePizza} alt={t('synthesis.pizzaName')} className="w-16 h-16 object-contain drop-shadow-md" />
              <div className="text-right">
-                <div className="text-xs text-gray-400 font-bold mb-1">認證編號</div>
+                <div className="text-xs text-gray-400 font-bold mb-1">{t('victory.certNumber')}</div>
                 <div className="text-[#38BDF8] font-mono">PIZZA-001</div>
              </div>
            </div>
 
-           <h2 className="text-[#FBBF24] text-xl font-bold mb-4 w-full border-b border-gray-700 pb-2">閃電特攻隊</h2>
+           <h2 className="text-[#FBBF24] text-xl font-bold mb-4 w-full border-b border-gray-700 pb-2">{teamName || t('dashboard.meta.unnamedTeam')}</h2>
            
            <div className="w-full space-y-3 mb-8">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">完成時間</span>
-                <span className="text-white font-mono font-bold">45 分 23 秒</span>
+                <span className="text-gray-400">{t('victory.timeLabel')}</span>
+                <span className="text-white font-mono font-bold">{t('victory.timeValue')}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">收集食材</span>
-                <span className="text-[#4ADE80] font-bold">4 / 4 完美達成</span>
+                <span className="text-gray-400">{t('victory.ingredientsLabel')}</span>
+                <span className="text-[#4ADE80] font-bold">{t('victory.perfectClear')}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">智力評級</span>
-                <span className="text-[#F472B6] font-bold">SSS 級大腦洞</span>
+                <span className="text-gray-400">{t('victory.intelLabel')}</span>
+                <span className="text-[#F472B6] font-bold">{t('victory.sssRating')}</span>
               </div>
            </div>
            
            <div className="text-xs text-center text-gray-500 font-bold border-t border-gray-800 pt-4 w-full">
-             提拉米蘇大師親自認證<br/>2026 義次元腦洞大開
+             {t('victory.certFooter1')}<br/>{t('victory.certFooter2')}
            </div>
         </div>
 
@@ -97,14 +101,14 @@ export default function VictoryPage() {
              onClick={handleDownload}
              className="w-full py-4 rounded-xl font-bold text-white bg-[#38BDF8] border-b-4 border-[#0284c7] active:border-b-0 active:translate-y-1 shadow-lg"
           >
-             📥 儲存數位證書
+             {t('victory.saveBtn')}
           </button>
           
           <button 
              onClick={() => navigate('/login')}
              className="w-full py-4 rounded-xl font-bold text-gray-400 bg-gray-900 border border-gray-700 hover:text-white transition-colors"
           >
-             返回主選單
+             {t('victory.homeBtn')}
           </button>
         </div>
 

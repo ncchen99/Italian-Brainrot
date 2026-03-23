@@ -2,47 +2,49 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DialogPanel from '../components/DialogPanel';
 import { characterAssets } from '../assets';
+import { useTranslation } from 'react-i18next';
 
 export default function CharacterIntroPage() {
   const { characterId } = useParams();
   const navigate = useNavigate();
   const [dialogFinished, setDialogFinished] = useState(false);
+  const { t } = useTranslation();
 
   // Mock character database
   const characterData = {
     'level1': {
       name: 'Cappuccino Assassino',
-      text: 'Cappu-cappu！吾乃暗影中的卡布奇諾！漢堡魔王用幻術讓我忘記了忍術的結印順序！沒有忍術，我是無法給你披薩材料的，那太不 Sigma 了！',
+      textKey: 'intro.level1_text',
       color: '#0D0F1A'
     },
     'level2': {
       name: 'Ballerina Cappuccina',
-      text: 'Mi mi mi mi！氣死我了，大破防！有人把我最愛的芭蕾舞鞋藏起來了！沒有舞鞋，我要怎麼跳給 Lololo 看？快幫我找回來！',
+      textKey: 'intro.level2_text',
       color: '#F472B6'
     },
     'level3': {
       name: 'Brr Brr Patapim',
-      text: '救命啊...我頭上的金色帽子裡有一隻叫做 Slim 的藍色青蛙一直在叫！提拉米蘇大師說需要一顆『超級充氣球』才能把它氣球般吹走。你們可以幫我嗎？',
+      textKey: 'intro.level3_text',
       color: '#4ADE80'
     },
     'level4': {
       name: 'Bombardilo Crocodilo',
-      text: '嘿嘿嘿！我是轟炸鱷鱷！今天不丟炸彈，我丟水球！既然你們覺得自己很聰明，來解開我的無敵邏輯題吧！答錯就把你們淋成落湯雞，超派！',
+      textKey: 'intro.level4_text',
       color: '#38BDF8'
     },
     'level5': {
       name: 'Lirili Larila',
-      text: '渴死我了，比沒有水更慘的是沒有 Wi-Fi。漢堡魔王在我的時間鬧鐘上鎖了『規律密碼』。你們能幫我破解數列重啟鬧鐘嗎？',
+      textKey: 'intro.level5_text',
       color: '#FBBF24'
     },
     'level6': {
       name: 'Tung Tung Tung Sahur',
-      text: '我也想變成木頭猩猩，一起對抗漢堡魔王，但是只有我自己力量不夠，你們可以跟我一起嗎？',
+      textKey: 'intro.level6_text',
       color: '#8B5CF6'
     },
     'level7': {
       name: 'Tralalero Tralala',
-      text: '魔王踩髒了我的全新限量版潮鞋！我要揍扁他！但他設下了雙色能量防護罩，單打獨鬥贏不了的，快去尋找不同顏色的盟友來幫忙！',
+      textKey: 'intro.level7_text',
       color: '#EF4444'
     }
   };
@@ -88,11 +90,10 @@ export default function CharacterIntroPage() {
           </div>
         </div>
 
-        {/* Dialog Panel Component */}
         <div className="px-2 w-full">
           <DialogPanel
             characterName={currentCharacter.name}
-            dialogText={currentCharacter.text}
+            dialogText={t(currentCharacter.textKey)}
             avatarSrc={currentCharacterAsset.image}
             audioSrc={currentCharacterAsset.voice}
             followupAudioSrc={currentIntroAudio}
@@ -110,7 +111,7 @@ export default function CharacterIntroPage() {
           >
             <div className="absolute inset-0 w-full h-full bg-white/30 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
             <span className="relative text-[#451a03] font-bold text-xl flex items-center justify-center gap-2 drop-shadow-sm">
-              接受挑戰！
+              {t('intro.acceptBtn')}
             </span>
           </button>
 
@@ -118,7 +119,7 @@ export default function CharacterIntroPage() {
             onClick={() => navigate('/dashboard')}
             className="w-full mt-4 py-3 text-gray-300 font-bold hover:text-[#FBBF24] transition-colors"
           >
-            先去其他地方轉轉
+            {t('intro.leaveBtn')}
           </button>
         </div>
 

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { uiImages } from '../assets';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { requestAppFullscreen } from '../services/fullscreenService';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 export default function LoginPage() {
   const [teamName, setTeamName] = useState('');
@@ -10,6 +12,7 @@ export default function LoginPage() {
   const [errorText, setErrorText] = useState('');
   const navigate = useNavigate();
   const { bindTeamProfile } = useAppSession();
+  const { t } = useTranslation();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -28,7 +31,7 @@ export default function LoginPage() {
         code: error?.code,
         message: error?.message
       });
-      setErrorText(error?.message || '登入失敗，請稍後再試。');
+      setErrorText(error?.message || t('login.loginFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -36,6 +39,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative w-full min-h-screen flex flex-col items-center justify-center p-6 overflow-hidden">
+      <LanguageSwitcher />
       {/* Two-tone Background */}
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#0F172A] to-[#1E293B]">
         <img src={uiImages.loginBackground} alt="" className="absolute inset-0 w-full h-full object-cover opacity-25" />
@@ -65,24 +69,24 @@ export default function LoginPage() {
         </div>
 
         <h1 className="text-4xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-[#F59E0B] to-[#F59E0B] drop-shadow-sm leading-tight">
-          義次元<br />腦洞大開
+          {t('login.titleLine1')}<br />{t('login.titleLine2')}
         </h1>
         <p className="text-center text-[#F59E0B] mb-12 font-bold tracking-widest drop-shadow-md">
-          校園瑪瑪咪呀合成大戰
+          {t('login.subtitle')}
         </p>
 
         {/* Login Form */}
         <form onSubmit={handleLogin} className="w-full bg-[#1E293B]/80 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-2xl">
           <div className="mb-6">
             <label htmlFor="teamName" className="block text-sm font-bold text-[#F59E0B] mb-2">
-              輸入小隊編號或名稱
+              {t('login.inputLabel')}
             </label>
             <input
               type="text"
               id="teamName"
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
-              placeholder="例如：閃電特攻隊"
+              placeholder={t('login.inputPlaceholder')}
               className="w-full bg-[#0F172A] border-2 border-gray-600 rounded-xl px-4 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-[#F59E0B] focus:ring-4 focus:ring-[#F59E0B]/30 transition-all text-lg font-bold text-center"
               required
             />
@@ -101,7 +105,7 @@ export default function LoginPage() {
           >
             <div className="absolute inset-0 w-full h-full bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
             <span className="relative text-white font-bold text-xl drop-shadow-md flex items-center justify-center gap-2">
-              {isSubmitting ? '登入中...' : '出發拯救校園'}
+              {isSubmitting ? t('login.loggingIn') : t('login.submitBtn')}
             </span>
           </button>
         </form>

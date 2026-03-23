@@ -12,6 +12,7 @@ import {
   useSensors
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { useTranslation } from 'react-i18next';
 
 function DraggableItem({ draggableId, payload, item, onClickQuickPlace }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -66,6 +67,7 @@ function SlotDropArea({ index, slot, activeOverId, onQuickReturn }) {
   const id = `slot-drop-${index}`;
   const { setNodeRef, isOver } = useDroppable({ id, data: { target: 'slot', index } });
   const highlighted = isOver || activeOverId === id;
+  const { t } = useTranslation();
 
   return (
     <div className="flex items-center">
@@ -87,7 +89,7 @@ function SlotDropArea({ index, slot, activeOverId, onQuickReturn }) {
             onClickQuickPlace={() => onQuickReturn(index)}
           />
         ) : null}
-        {!slot && highlighted ? <div className="text-sm text-[#7C5CFC]">放開以放置</div> : null}
+        {!slot && highlighted ? <div className="text-sm text-[#7C5CFC]">{t('dnd.dropToPlace')}</div> : null}
       </div>
     </div>
   );
@@ -98,6 +100,7 @@ export default function DragDropContainer({ items, slotsCount = 4, onComplete, o
   const [slots, setSlots] = useState(Array(slotsCount).fill(null));
   const [activePayload, setActivePayload] = useState(null);
   const [activeOverId, setActiveOverId] = useState(null);
+  const { t } = useTranslation();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -209,7 +212,7 @@ export default function DragDropContainer({ items, slotsCount = 4, onComplete, o
     >
       <div className="w-full max-w-sm mx-auto p-4 select-none">
         <h3 className="text-center text-sm text-gray-400 mb-4">
-          拖曳到欄位即可放置；點一下可快速放入空欄
+          {t('dnd.instruction')}
         </h3>
 
         <PoolDropArea isActive={activeOverId === 'pool-drop'}>
@@ -224,7 +227,7 @@ export default function DragDropContainer({ items, slotsCount = 4, onComplete, o
           ))}
           {availableItems.length === 0 ? (
             <div className="w-full flex items-center justify-center text-gray-500 text-sm">
-              已全數放置完成
+              {t('dnd.allPlaced')}
             </div>
           ) : null}
         </PoolDropArea>

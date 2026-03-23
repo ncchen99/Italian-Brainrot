@@ -9,25 +9,26 @@ import { getRouteByScanCode } from '../scanCodes';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { requestAppFullscreen, isFullscreenActive } from '../services/fullscreenService';
 import { grantScanAccess } from '../services/scanAccessService';
-import { markRecentScan, subscribeSessionProgress, subscribeTeamProgress } from '../services/progressService';
+import { subscribeSessionProgress, subscribeTeamProgress, markRecentScan } from '../services/progressService';
+import { useTranslation } from 'react-i18next';
 
 const INGREDIENTS_META = [
-  { id: 'i1', levelId: 'level1', iconSrc: ingredientImages.flour, title: '陳年特級麵粉', description: '一袋散發著金光的特級麵粉，是披薩的靈魂基礎。', imageSrc: ingredientImages.premiumFlour, activeColor: '#FBBF24', collectedOrder: 1 },
-  { id: 'i2', levelId: 'level2', iconSrc: ingredientImages.tomato, title: '神聖番茄', description: '傳說中能讓醬汁香氣瞬間滿溢的稀有番茄。', imageSrc: ingredientImages.holyTomato, activeColor: '#F97316', collectedOrder: 2 },
-  { id: 'i3', levelId: 'level3', iconSrc: ingredientImages.water, title: '純淨山泉水', description: '提拉米蘇大師加持過的涼爽泉水。', imageSrc: ingredientImages.pureSpringWater, activeColor: '#38BDF8', collectedOrder: 3 },
-  { id: 'i4', levelId: 'level4', iconSrc: ingredientImages.cheese, title: '濃郁帕瑪森起司', description: '風味扎實、鹹香濃郁，是披薩的靈魂重擊。', imageSrc: ingredientImages.richParmesanCheese, activeColor: '#F59E0B', collectedOrder: 4 },
-  { id: 'i5', levelId: 'level5', iconSrc: ingredientImages.basil, title: '魔法羅勒葉', description: '最後那一抹清香，讓終極披薩完成進化。', imageSrc: ingredientImages.magicBasilLeaf, activeColor: '#4ADE80', collectedOrder: 5 }
+  { id: 'i1', levelId: 'level1', iconSrc: ingredientImages.flour, titleKey: 'dashboard.ingredients.i1_title', descKey: 'dashboard.ingredients.i1_desc', imageSrc: ingredientImages.premiumFlour, activeColor: '#FBBF24', collectedOrder: 1 },
+  { id: 'i2', levelId: 'level2', iconSrc: ingredientImages.tomato, titleKey: 'dashboard.ingredients.i2_title', descKey: 'dashboard.ingredients.i2_desc', imageSrc: ingredientImages.holyTomato, activeColor: '#F97316', collectedOrder: 2 },
+  { id: 'i3', levelId: 'level3', iconSrc: ingredientImages.water, titleKey: 'dashboard.ingredients.i3_title', descKey: 'dashboard.ingredients.i3_desc', imageSrc: ingredientImages.pureSpringWater, activeColor: '#38BDF8', collectedOrder: 3 },
+  { id: 'i4', levelId: 'level4', iconSrc: ingredientImages.cheese, titleKey: 'dashboard.ingredients.i4_title', descKey: 'dashboard.ingredients.i4_desc', imageSrc: ingredientImages.richParmesanCheese, activeColor: '#F59E0B', collectedOrder: 4 },
+  { id: 'i5', levelId: 'level5', iconSrc: ingredientImages.basil, titleKey: 'dashboard.ingredients.i5_title', descKey: 'dashboard.ingredients.i5_desc', imageSrc: ingredientImages.magicBasilLeaf, activeColor: '#4ADE80', collectedOrder: 5 }
 ];
 
 const TASKS_META = [
-  { id: 'level1', title: '關卡 1：忍者的修煉' },
-  { id: 'level2', title: '關卡 2：舞鞋在哪裡？' },
-  { id: 'level3', title: '關卡 3：吵鬧的青蛙' },
-  { id: 'level4', title: '關卡 4：水球空投警報' },
-  { id: 'level5', title: '關卡 5：沙漠與斷網的絕望' },
-  { id: 'level6', title: '關卡 6：小心暴走猩猩' },
-  { id: 'level7', title: '關卡 7：潮鞋防衛戰' },
-  { id: 'level8', title: '關卡 8：終極合成協作站' }
+  { id: 'level1', titleKey: 'dashboard.tasks.level1' },
+  { id: 'level2', titleKey: 'dashboard.tasks.level2' },
+  { id: 'level3', titleKey: 'dashboard.tasks.level3' },
+  { id: 'level4', titleKey: 'dashboard.tasks.level4' },
+  { id: 'level5', titleKey: 'dashboard.tasks.level5' },
+  { id: 'level6', titleKey: 'dashboard.tasks.level6' },
+  { id: 'level7', titleKey: 'dashboard.tasks.level7' },
+  { id: 'level8', titleKey: 'dashboard.tasks.level8' }
 ];
 
 export default function MainDashboard() {
@@ -38,6 +39,7 @@ export default function MainDashboard() {
   const [fullscreenHint, setFullscreenHint] = useState(false);
   const { teamName, teamId, activeChallenge } = useAppSession();
   const [progressMap, setProgressMap] = useState({});
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!teamId) {
@@ -102,10 +104,11 @@ export default function MainDashboard() {
   if (progressMap['level6']?.status === 'completed' && progressMap['level6']?.antennaColor) {
     const color = progressMap['level6'].antennaColor;
     const passCode = progressMap['level6'].passCode || '???';
+    const colorTrans = color === 'red' ? t('dashboard.meta.red') : t('dashboard.meta.blue');
     displayedItems.push({
       id: 'antenna_fragment',
-      title: `${color === 'red' ? '紅色' : '藍色'}天線碎片`,
-      description: `包含一半的通訊密碼：${passCode}`,
+      title: t('dashboard.meta.antennaFragment', { color: colorTrans }),
+      description: t('dashboard.meta.antennaDesc', { passCode }),
       isCollected: true,
       imageSrc: color === 'red' ? uiImages.wifiRed : uiImages.wifiBlue,
       activeColor: color === 'red' ? '#EF4444' : '#3B82F6'
@@ -129,29 +132,29 @@ export default function MainDashboard() {
       if (task.id === 'level8') {
         const synthesisStatus = levelProgressMap.level8;
         if (synthesisStatus === 'completed') {
-          return { ...task, state: 'completed', label: '已完成', accent: '#7C5CFC' };
+          return { ...task, state: 'completed', label: t('dashboard.status.completed'), accent: '#7C5CFC' };
         }
         if (isSynthesisUnlocked) {
-          return { ...task, state: 'ready', label: '可前往', accent: '#4ADE80' };
+          return { ...task, state: 'ready', label: t('dashboard.status.ready'), accent: '#4ADE80' };
         }
-        return { ...task, state: 'locked', label: '尚未解鎖', accent: '#6B7280' };
+        return { ...task, state: 'locked', label: t('dashboard.status.locked'), accent: '#6B7280' };
       }
 
       const status = levelProgressMap[task.id];
       if (status === 'completed') {
-        return { ...task, state: 'completed', label: '已完成', accent: '#7C5CFC' };
+        return { ...task, state: 'completed', label: t('dashboard.status.completed'), accent: '#7C5CFC' };
       }
       if (status === 'failed') {
-        return { ...task, state: 'retry', label: '待重試', accent: '#F97316' };
+        return { ...task, state: 'retry', label: t('dashboard.status.retry'), accent: '#F97316' };
       }
       if (task.id === firstUnfinishedLevelId) {
-        return { ...task, state: 'active', label: '進行中', accent: '#FBBF24' };
+        return { ...task, state: 'active', label: t('dashboard.status.active'), accent: '#FBBF24' };
       }
-      return { ...task, state: 'pending', label: '待挑戰', accent: '#94A3B8' };
+      return { ...task, state: 'pending', label: t('dashboard.status.pending'), accent: '#94A3B8' };
     }),
-    [firstUnfinishedLevelId, isSynthesisUnlocked, levelProgressMap]
+    [firstUnfinishedLevelId, isSynthesisUnlocked, levelProgressMap, t]
   );
-  const displayTeamName = teamName || '未命名小隊';
+  const displayTeamName = teamName || t('dashboard.meta.unnamedTeam');
   const challengeEndsAtMs = Number(activeChallenge?.endsAtMs);
   const challengeRemainingSeconds = Number.isFinite(challengeEndsAtMs)
     ? Math.ceil((challengeEndsAtMs - Date.now()) / 1000)
@@ -165,7 +168,7 @@ export default function MainDashboard() {
   const handleScanResult = async (scanInput) => {
     const targetRoute = getRouteByScanCode(scanInput);
     if (!targetRoute) {
-      setScanError('無效 QR Code，請重新掃描正確關卡。');
+      setScanError(t('dashboard.meta.invalidQr'));
       return;
     }
 
@@ -198,18 +201,18 @@ export default function MainDashboard() {
       {/* Top Header */}
       <div className="relative z-10 w-full max-w-sm flex justify-between items-center bg-[#151A30]/90 p-4 rounded-3xl border border-white/10 shadow-lg mb-6 isolate">
         <div>
-          <div className="text-xs text-gray-400 font-bold mb-1">目前小隊</div>
+          <div className="text-xs text-gray-400 font-bold mb-1">{t('dashboard.meta.currentTeam')}</div>
           <div className="text-[#FBBF24] font-bold text-lg">{displayTeamName}</div>
         </div>
         <div className="flex flex-col items-end">
-          <div className="text-xs text-gray-400 font-bold mb-1">剩餘時間</div>
+          <div className="text-xs text-gray-400 font-bold mb-1">{t('dashboard.meta.remainingTime')}</div>
           {challengeRemainingSeconds === null ? (
             <div className="inline-flex items-center justify-center px-4 py-2 rounded-xl border-2 font-bold font-mono text-xl tracking-wider bg-[#1A1D2E] border-[#7C5CFC]/50 text-white">
               --:--
             </div>
           ) : challengeRemainingSeconds <= 0 ? (
             <div className="inline-flex items-center justify-center px-4 py-2 rounded-xl border-2 font-bold text-sm bg-[#1A1D2E] border-[#7C5CFC]/50 text-white">
-              剩下 0 分鐘
+              {t('dashboard.meta.zeroMinutes')}
             </div>
           ) : (
             <CountdownTimer
@@ -228,7 +231,7 @@ export default function MainDashboard() {
               onClick={handleTryFullscreen}
               className="w-full mb-4 text-sm rounded-xl bg-[#7C5CFC]/20 border border-[#7C5CFC]/40 px-3 py-2 text-[#E9D5FF]"
             >
-              建議切換全螢幕以獲得最佳體驗（點此嘗試）
+              {t('dashboard.meta.fullscreenHint')}
             </button>
           ) : null}
           
@@ -268,13 +271,12 @@ export default function MainDashboard() {
             </div>
           </div>
 
-          {/* Collected Items Grid */}
           <div className="grid grid-cols-2 gap-4 pb-24">
             {displayedItems.map((item) => (
               <ItemCard
                 key={item.id}
-                title={item.title}
-                description={item.description}
+                title={item.titleKey ? t(item.titleKey) : item.title}
+                description={item.descKey ? t(item.descKey) : item.description}
                 isCollected={item.isCollected}
                 imageSrc={item.imageSrc}
                 glowColor={item.activeColor}
@@ -282,7 +284,7 @@ export default function MainDashboard() {
             ))}
             {displayedItems.length === 0 && (
               <div className="col-span-2 rounded-2xl border border-dashed border-gray-600 bg-[#151A30]/70 px-4 py-8 text-center text-gray-400 text-sm">
-                目前還沒有已收集材料，請先前往關卡取得食材。
+                {t('dashboard.meta.noIngredients')}
               </div>
             )}
           </div>
@@ -291,7 +293,7 @@ export default function MainDashboard() {
       ) : (
         /* Tasks Tab View */
         <div className="relative z-10 w-full max-w-sm w-full animate-in fade-in duration-300">
-          <h2 className="text-2xl font-bold text-[#FBBF24] mb-4 drop-shadow-md">待辦任務清單</h2>
+          <h2 className="text-2xl font-bold text-[#FBBF24] mb-4 drop-shadow-md">{t('dashboard.meta.taskList')}</h2>
           
           <div className="space-y-3">
             {taskItems.map((task) => {
@@ -308,7 +310,7 @@ export default function MainDashboard() {
                   style={{ borderLeftWidth: 4, borderLeftColor: task.accent }}
                 >
                   <span className={isCompleted ? 'line-through text-gray-400' : 'text-white font-bold'}>
-                    {task.title}
+                    {t(task.titleKey)}
                   </span>
                   <span
                     className={`text-xs px-2 py-1 rounded-full border ${

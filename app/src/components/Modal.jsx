@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function Modal({ 
   isOpen, 
@@ -10,6 +11,7 @@ export default function Modal({
 }) {
   const [shouldRender, setShouldRender] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (isOpen) {
@@ -76,7 +78,7 @@ export default function Modal({
                   'bg-[#7C5CFC] border-[#5b41c2] hover:bg-[#6b4ade]'
                 }`}
             >
-              確定
+              {t('common.confirm')}
             </button>
           )}
         </div>

@@ -2,13 +2,15 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { uiImages } from '../assets';
+import { useTranslation } from 'react-i18next';
 
 export default function LevelTaskContainer({ children, levelTitle, characterColor = "#7C5CFC" }) {
   const navigate = useNavigate();
   // If no props passed (used as direct route component), we can extract from params
   const { levelId } = useParams();
+  const { t } = useTranslation();
   
-  const displayTitle = levelTitle || `第 ${levelId?.replace('level', '') || '?'} 關挑戰`;
+  const displayTitle = levelTitle || t('levelContainer.defaultTitle', { levelNum: levelId?.replace('level', '') || '?' });
 
   return (
     <div className="w-full min-h-[100dvh] flex flex-col bg-[#0D0F1A] pb-8 overflow-x-hidden">
@@ -35,8 +37,8 @@ export default function LevelTaskContainer({ children, levelTitle, characterColo
         {/* Children components (Specific Level UIs) will be injected here */}
         {children ? children : (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500 animate-pulse">
-            <img src={uiImages.logo} alt="施工中" className="w-16 h-16 mb-4 object-contain opacity-60" />
-            <p>關卡 {levelId} 內容建構中...</p>
+            <img src={uiImages.logo} alt={t('levelContainer.underConstructionAlt')} className="w-16 h-16 mb-4 object-contain opacity-60" />
+            <p>{t('levelContainer.underConstructionText', { levelId })}</p>
           </div>
         )}
 

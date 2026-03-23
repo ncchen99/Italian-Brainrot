@@ -1,31 +1,32 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import Modal from './Modal';
+import { useTranslation } from 'react-i18next';
 
-async function waitForElementById(elementId, maxMs = 1500) {
+async function waitForElementById(elementId, t, maxMs = 1500) {
   const start = Date.now();
   while (Date.now() - start <= maxMs) {
     const element = document.getElementById(elementId);
     if (element) return element;
     await new Promise((resolve) => setTimeout(resolve, 30));
   }
-  throw new Error('掃描區塊尚未建立，請再試一次。');
+  throw new Error(t('qrcode.errScannerNotReady'));
 }
 
-async function ensureCameraPermission() {
+async function ensureCameraPermission(t) {
   if (!window.isSecureContext) {
-    throw new Error('相機功能需要安全連線，請改用 HTTPS 或 localhost 開啟頁面。');
+    throw new Error(t('qrcode.errHttpsRequired'));
   }
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    throw new Error('目前瀏覽器不支援相機存取，請改用最新版 Chrome 或 Safari。');
+    throw new Error(t('qrcode.errBrowserNotSupported'));
   }
 
   try {
     if (navigator.permissions?.query) {
       const cameraPermission = await navigator.permissions.query({ name: 'camera' });
       if (cameraPermission.state === 'denied') {
-        throw new Error('相機權限已被封鎖，請到瀏覽器設定將相機權限改為允許。');
+        throw new Error(t('qrcode.errPermissionDenied'));
       }
     }
   } catch {
@@ -49,6 +50,7 @@ export default function QRCodeScannerModal({ isOpen, onClose, onScan }) {
   const scannerRef = useRef(null);
   const handledRef = useRef(false);
   const [errorText, setErrorText] = useState('');
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!isOpen) {
@@ -65,10 +67,10 @@ export default function QRCodeScannerModal({ isOpen, onClose, onScan }) {
 
     const startScanner = async () => {
       try {
-        await waitForElementById(scannerId);
+        await waitForElementById(scannerId, t);
         if (cancelled) return;
 
-        await ensureCameraPermission();
+        await ensureCameraPermission(t);
         if (cancelled) return;
 
         const scanner = new Html5Qrcode(scannerId, { verbose: false });
@@ -89,7 +91,7 @@ export default function QRCodeScannerModal({ isOpen, onClose, onScan }) {
         }
       } catch (error) {
         if (cancelled) return;
-        setErrorText(error?.message || '無法開啟相機，請確認相機權限。');
+        setErrorText(error?.message || t('qrcode.errCameraFailed'));
       }
     };
 
@@ -119,12 +121,12 @@ export default function QRCodeScannerModal({ isOpen, onClose, onScan }) {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="掃描 QR Code"
+      title={t('qrcode.title')}
       type="info"
       showCloseButton={true}
     >
       <div className="space-y-3">
-        <p className="text-sm text-gray-300">請將 QR Code 對準框內，系統會自動辨識。</p>
+        <p className="text-sm text-gray-300">{t('qrcode.instruction')}</p>
         <div className="rounded-2xl overflow-hidden border border-white/20 bg-black min-h-[260px]">
           <div id={scannerId} className="w-full min-h-[260px]" />
         </div>

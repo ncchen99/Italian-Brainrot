@@ -6,6 +6,7 @@ import { ingredientImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { saveLevelProgress } from '../services/progressService';
+import { useTranslation } from 'react-i18next';
 
 export default function Level2SafeLock() {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ export default function Level2SafeLock() {
   const [showError, setShowError] = useState(false);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level2');
   const { teamId, activeChallenge } = useAppSession();
+  const { t } = useTranslation();
 
   const handleKeyPress = (key) => {
     if (passcode.length < 4) {
@@ -62,9 +64,9 @@ export default function Level2SafeLock() {
     <div className="w-full flex-1 flex flex-col justify-center animate-in slide-in-from-bottom duration-500">
       
       <div className="bg-[#1A1D2E]/80 backdrop-blur-md p-6 rounded-[2rem] border-2 shadow-2xl mb-8" style={{ borderColor: `${currentLevelColor}50` }}>
-        <h2 className="text-[#FBBF24] font-bold text-xl text-center mb-2">舞鞋保險箱</h2>
+        <h2 className="text-[#FBBF24] font-bold text-xl text-center mb-2">{t('level2.title')}</h2>
         <p className="text-gray-300 text-sm text-center mb-8">
-          犯人留下了線索，舞鞋被藏在「有著三棵紅色植物與兩張長椅交界處」，密碼在那裡！
+          {t('level2.desc')}
         </p>
         
         {/* Passcode Display */}
@@ -95,16 +97,16 @@ export default function Level2SafeLock() {
       <Modal 
         isOpen={showSuccess && !isCoolingDown} 
         onClose={() => navigate('/dashboard')}
-        title="保險箱已解開"
+        title={t('level2.successTitle')}
         type="success"
       >
         <div className="flex flex-col items-center">
           <div className="w-24 h-24 mb-4 rounded-2xl bg-[#0B1224] border border-white/20 p-2 shadow-[0_0_20px_rgba(239,68,68,0.45)]">
-            <img src={ingredientImages.holyTomato} alt="神聖番茄" className="w-full h-full object-cover rounded-xl" />
+            <img src={ingredientImages.holyTomato} alt="Holy Tomato" className="w-full h-full object-cover rounded-xl" />
           </div>
-          <p className="text-white font-bold mb-2">獲得：神聖番茄！</p>
+          <p className="text-white font-bold mb-2">{t('level2.obtained')}</p>
           <div className="bg-[#166534] text-green-100 p-3 rounded-xl border border-green-500 text-sm w-full">
-            💡 線索：「聽說大腳怪猴子頭上有一隻青蛙。」
+            {t('level2.clue')}
           </div>
         </div>
       </Modal>
@@ -113,23 +115,23 @@ export default function Level2SafeLock() {
       <Modal 
         isOpen={showError} 
         onClose={() => { setShowError(false); navigate('/dashboard'); }}
-        title="密碼錯誤，進入冷卻"
+        title={t('level2.failTitle')}
         type="error"
         showCloseButton={true}
       >
-        <p className="text-white">這不是存放舞鞋的密碼！先去找找線索再回來。</p>
-        <p className="text-sm text-pink-200 mt-2">冷卻時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level2.failMsg')}</p>
+        <p className="text-sm text-pink-200 mt-2">{t('level2.cooldownTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
       <Modal
         isOpen={isCoolingDown && !showError}
         onClose={() => navigate('/dashboard')}
-        title="關卡冷卻中"
+        title={t('level2.cooldownTitle')}
         type="warning"
         showCloseButton={true}
       >
-        <p className="text-white">這關目前不能重試，請先去其他地方探索。</p>
-        <p className="text-[#FBBF24] font-bold mt-2">剩餘時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level2.cooldownMsg')}</p>
+        <p className="text-[#FBBF24] font-bold mt-2">{t('level2.remTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
     </div>

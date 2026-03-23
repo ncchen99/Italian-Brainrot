@@ -6,6 +6,7 @@ import { ingredientImages, characterAssets, sfx } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { saveLevelProgress } from '../services/progressService';
+import { useTranslation } from 'react-i18next';
 
 export default function Level3TapChallenge() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Level3TapChallenge() {
   const popAudioRef = useRef(null);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level3');
   const { teamId, activeChallenge } = useAppSession();
+  const { t } = useTranslation();
   
   const targetTaps = 50;
   const currentLevelColor = "#4ADE80";
@@ -89,15 +91,15 @@ export default function Level3TapChallenge() {
       <div className="w-full bg-[#1A1D2E]/80 backdrop-blur-md p-6 rounded-[2rem] border-2 shadow-2xl mb-8 flex flex-col items-center" style={{ borderColor: `${currentLevelColor}50` }}>
         
         <div className="flex justify-between w-full items-center mb-6">
-          <h2 className="text-[#FBBF24] font-bold text-xl">幫氣球充氣！</h2>
+          <h2 className="text-[#FBBF24] font-bold text-xl">{t('level3.title')}</h2>
           <div className="flex flex-col items-end">
-             {gameStatus === 'ready' && <div className="text-gray-400 font-bold border-2 border-gray-600 px-4 py-2 rounded-xl">10 秒倒數</div>}
+             {gameStatus === 'ready' && <div className="text-gray-400 font-bold border-2 border-gray-600 px-4 py-2 rounded-xl">{t('level3.readyCount')}</div>}
              {gameStatus === 'playing' && <CountdownTimer initialSeconds={10} isRunning={true} onTimeUp={handleTimeUp} format="SS" />}
           </div>
         </div>
         
         <p className="text-gray-300 text-sm text-center mb-8">
-          10 秒內狂戳氣球 50 下！！！
+          {t('level3.desc')}
         </p>
         
         {/* The Giant Balloon Button */}
@@ -114,14 +116,14 @@ export default function Level3TapChallenge() {
              {/* The annoying frog that is stuck inside */}
              <img src={characterAssets.level3.image} alt="Patapim" className="w-16 h-16 absolute animate-bounce object-contain" style={{ top: '18%' }} />
              
-             <span className="text-white font-black text-2xl z-10 drop-shadow-md mt-6">狂點這裡!!!</span>
+             <span className="text-white font-black text-2xl z-10 drop-shadow-md mt-6">{t('level3.tapHere')}</span>
           </div>
         </button>
         
         {/* Progress Bar */}
         <div className="w-full mt-8">
           <div className="flex justify-between text-xs font-bold mb-1">
-            <span className="text-gray-400">目前進度</span>
+            <span className="text-gray-400">{t('level3.progress')}</span>
             <span className="text-[#4ADE80]">{taps} / {targetTaps}</span>
           </div>
           <div className="w-full h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-600">
@@ -137,16 +139,16 @@ export default function Level3TapChallenge() {
       <Modal 
         isOpen={gameStatus === 'won' && !isCoolingDown} 
         onClose={() => navigate('/dashboard')}
-        title="挑戰成功"
+        title={t('level3.successTitle')}
         type="success"
       >
         <div className="flex flex-col items-center">
           <div className="w-24 h-24 mb-4 rounded-2xl bg-[#0B1224] border border-white/20 p-2 shadow-[0_0_20px_rgba(56,189,248,0.45)]">
-            <img src={ingredientImages.pureSpringWater} alt="純淨山泉水" className="w-full h-full object-cover rounded-xl" />
+            <img src={ingredientImages.pureSpringWater} alt="Pure Spring Water" className="w-full h-full object-cover rounded-xl" />
           </div>
-          <p className="text-white font-bold mb-2">獲得：純淨山泉水！</p>
+          <p className="text-white font-bold mb-2">{t('level3.obtained')}</p>
           <div className="bg-[#166534] text-green-100 p-3 rounded-xl border border-green-500 text-sm w-full">
-            💡 線索：「先把五種材料都收齊，回到合成器一起加工！」
+            {t('level3.clue')}
           </div>
         </div>
       </Modal>
@@ -154,26 +156,26 @@ export default function Level3TapChallenge() {
       <Modal 
         isOpen={gameStatus === 'lost'} 
         onClose={() => { setGameStatus('ready'); setTaps(0); navigate('/dashboard'); }}
-        title="手速太慢，進入冷卻"
+        title={t('level3.failTitle')}
         type="error"
         showCloseButton={true}
       >
         <div className="text-center">
           <p className="text-6xl mb-4">😮‍💨</p>
-          <p className="text-white">青蛙還在帽子裡叫，帕塔平大破防！</p>
-          <p className="text-sm text-pink-200 mt-2">冷卻時間：{formatCooldownTime(remainingMs)}</p>
+          <p className="text-white">{t('level3.failMsg')}</p>
+          <p className="text-sm text-pink-200 mt-2">{t('level3.cooldownTime')} {formatCooldownTime(remainingMs)}</p>
         </div>
       </Modal>
 
       <Modal
         isOpen={isCoolingDown && gameStatus !== 'lost'}
         onClose={() => navigate('/dashboard')}
-        title="關卡冷卻中"
+        title={t('level3.cooldownTitle')}
         type="warning"
         showCloseButton={true}
       >
-        <p className="text-white">這關剛挑戰失敗，先去別關幫忙收集素材吧。</p>
-        <p className="text-[#FBBF24] font-bold mt-2">剩餘時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level3.cooldownMsg')}</p>
+        <p className="text-[#FBBF24] font-bold mt-2">{t('level3.remTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
     </div>

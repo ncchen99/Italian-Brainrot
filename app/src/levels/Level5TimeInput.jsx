@@ -4,6 +4,7 @@ import { ingredientImages, uiImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { saveLevelProgress } from '../services/progressService';
+import { useTranslation } from 'react-i18next';
 
 export default function Level5TimeInput() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function Level5TimeInput() {
   const [showError, setShowError] = useState(false);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level5');
   const { teamId, activeChallenge } = useAppSession();
+  const { t } = useTranslation();
 
   const prevLocks = ["01:15", "02:30", "04:00", "05:45"];
   const correctTime = "0745"; // 07:45
@@ -68,12 +70,12 @@ export default function Level5TimeInput() {
       <div className="bg-[#1A1D2E]/80 backdrop-blur-md p-6 rounded-[2rem] border-2 shadow-2xl mb-8" style={{ borderColor: `${currentLevelColor}50` }}>
         
         <div className="bg-[#0D0F1A] border-l-4 border-[#FBBF24] p-4 rounded-r-xl mb-6 shadow-md text-sm text-gray-200">
-          <p className="font-bold text-[#FBBF24] mb-2">⏳ 鬧鐘數列解謎：</p>
-          <p className="mb-2">前四道鎖顯示的時間：</p>
+          <p className="font-bold text-[#FBBF24] mb-2">{t('level5.logicTitle')}</p>
+          <p className="mb-2">{t('level5.logicDesc1')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 px-2 text-center text-[#4ADE80] font-mono text-base sm:text-lg font-bold mb-4 drop-shadow-md">
             {prevLocks.map((t, i) => <span key={i}>{t}</span>)}
           </div>
-          <p className="text-white font-bold">請問「第五道鎖」應該輸入幾點幾分才能完全解開？</p>
+          <p className="text-white font-bold">{t('level5.logicDesc2')}</p>
         </div>
         
         {/* Time Input Display */}
@@ -95,18 +97,18 @@ export default function Level5TimeInput() {
       <Modal 
         isOpen={showSuccess && !isCoolingDown} 
         onClose={() => navigate('/dashboard')}
-        title="鬧鐘重啟成功"
+        title={t('level5.successTitle')}
         type="success"
       >
         <div className="flex flex-col items-center">
           <div className="w-24 h-24 mb-4 rounded-2xl bg-[#0B1224] border border-white/20 p-2 shadow-[0_0_20px_rgba(74,222,128,0.45)]">
-            <img src={ingredientImages.magicBasilLeaf} alt="魔法羅勒葉" className="w-full h-full object-cover rounded-xl" />
+            <img src={ingredientImages.magicBasilLeaf} alt="Magic Basil Leaf" className="w-full h-full object-cover rounded-xl" />
           </div>
-          <p className="text-white font-bold mb-2">獲得：魔法羅勒葉！</p>
+          <p className="text-white font-bold mb-2">{t('level5.obtained')}</p>
           <div className="bg-[#166534] text-green-100 p-3 rounded-xl border border-green-500 text-sm w-full mb-2">
             <span className="inline-flex items-center gap-2">
-              <img src={uiImages.wifiFragments} alt="藍色天線碎片" className="w-5 h-5 object-contain" />
-              你獲得了一半的通訊密碼與藍色天線碎片！
+              <img src={uiImages.wifiFragments} alt={t('level5.wifiAlt')} className="w-5 h-5 object-contain" />
+              {t('level5.clue')}
             </span>
           </div>
         </div>
@@ -115,23 +117,23 @@ export default function Level5TimeInput() {
       <Modal 
         isOpen={showError} 
         onClose={() => { setShowError(false); navigate('/dashboard'); }}
-        title="密碼錯誤，進入冷卻"
+        title={t('level5.failTitle')}
         type="error"
         showCloseButton={true}
       >
-        <p className="text-white">鬧鐘發出嗶嗶聲並鎖死了！請稍後再試。</p>
-        <p className="text-sm text-pink-200 mt-2">冷卻時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level5.failMsg')}</p>
+        <p className="text-sm text-pink-200 mt-2">{t('level5.cooldownTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
       <Modal
         isOpen={isCoolingDown && !showError}
         onClose={() => navigate('/dashboard')}
-        title="關卡冷卻中"
+        title={t('level5.cooldownTitle')}
         type="warning"
         showCloseButton={true}
       >
-        <p className="text-white">你剛剛答錯了，請先去其他關卡探索。</p>
-        <p className="text-[#FBBF24] font-bold mt-2">剩餘時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level5.cooldownMsg')}</p>
+        <p className="text-[#FBBF24] font-bold mt-2">{t('level5.remTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
     </div>

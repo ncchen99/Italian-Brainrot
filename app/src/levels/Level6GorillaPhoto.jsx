@@ -8,6 +8,7 @@ import { useAppSession } from '../contexts/AppSessionContext';
 import { ensureAnonymousAuth } from '../services/authService';
 import { uploadImageToFirebaseStorage } from '../services/uploadService';
 import { saveLevelProgress, saveUploadRecord, assignAntennaAndPasscode } from '../services/progressService';
+import { useTranslation, Trans } from 'react-i18next';
 
 export default function Level6GorillaPhoto() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export default function Level6GorillaPhoto() {
   const fileInputRef = useRef(null);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level6');
   const { teamId, activeChallenge } = useAppSession();
+  const { t } = useTranslation();
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
@@ -55,7 +57,7 @@ export default function Level6GorillaPhoto() {
         const authUser = await ensureAnonymousAuth();
         const effectiveTeamId = teamId || authUser?.uid || null;
         if (!effectiveTeamId) {
-          throw new Error('尚未取得登入身分，請稍後再試。');
+          throw new Error(t('level6.errorNoAuth'));
         }
 
         const uploadResult = await uploadImageToFirebaseStorage({
@@ -97,7 +99,7 @@ export default function Level6GorillaPhoto() {
           teamId: teamId || null
         });
         setUploadStatus('error');
-        setSubmitError(error?.message || '圖片上傳失敗，請稍後再試。');
+        setSubmitError(error?.message || t('level6.errorUploadFailed'));
         return;
       }
 
@@ -124,9 +126,9 @@ export default function Level6GorillaPhoto() {
 
       <div className="bg-[#1A1D2E]/80 backdrop-blur-md p-6 rounded-[2rem] border-2 shadow-2xl mb-8 flex flex-col items-center" style={{ borderColor: `${currentLevelColor}50` }}>
 
-        <h2 className="text-[#FBBF24] font-bold text-xl text-center mb-2">大猩猩力量認證</h2>
+        <h2 className="text-[#FBBF24] font-bold text-xl text-center mb-2">{t('level6.title')}</h2>
         <p className="text-gray-300 text-sm text-center mb-6">
-          請全隊一起擺出「大猩猩捶胸頓足」的超兇姿勢拍照上傳！
+          {t('level6.desc')}
         </p>
 
         {/* Camera Area */}
@@ -143,7 +145,7 @@ export default function Level6GorillaPhoto() {
           ) : (
             <div className="text-center text-gray-500 flex flex-col items-center">
               <Camera size={48} className="mb-2 opacity-50" />
-              <span>點擊上傳照片</span>
+              <span>{t('level6.clickToUpload')}</span>
             </div>
           )}
 
@@ -166,7 +168,7 @@ export default function Level6GorillaPhoto() {
               : 'bg-gray-700 border-gray-900'}
           `}
         >
-          {uploadStatus === 'uploading' ? '上傳中...' : '送出認證！'}
+          {uploadStatus === 'uploading' ? t('level6.uploading') : t('level6.submitBtn')}
         </button>
         {submitError ? (
           <p className="mt-3 text-sm text-pink-200 bg-pink-900/40 border border-pink-500/40 rounded-xl px-3 py-2 w-full">
@@ -179,24 +181,23 @@ export default function Level6GorillaPhoto() {
       <Modal
         isOpen={showSuccess && !isCoolingDown}
         onClose={() => navigate('/dashboard')}
-        title="認證成功"
+        title={t('level6.successTitle')}
         type="success"
       >
         <div className="flex flex-col items-center">
           <img src={characterAssets.level6.image} alt="Tung Tung Tung Sahur" className="w-20 h-20 mb-4 animate-bounce object-contain" />
-          <p className="text-white text-center font-bold mb-4">咚咚咚很滿意你們的力量！<br />你獲得了食材收集提示！</p>
+          <p className="text-white text-center font-bold mb-4"><Trans i18nKey="level6.successMsg" components={[<br key="br" />]} /></p>
           <div className="bg-[#1A1D2E] p-4 rounded-xl border border-[#FBBF24] text-center w-full shadow-inner mb-4">
-            <p className="text-[#FBBF24] text-xs mb-1">=== 闖關重點 ===</p>
+            <p className="text-[#FBBF24] text-xs mb-1">{t('level6.keyPoint')}</p>
             <p className="text-white text-sm font-bold">
-              請繼續收集：麵粉、水、神聖番茄、帕瑪森起司、魔法羅勒葉 <br />
-              回到 <span className="text-[#4ADE80]">合成協作站</span> 一起完成加工
+              <Trans i18nKey="level6.keyDesc" components={{ br: <br />, span: <span className="text-[#4ADE80]" /> }} />
             </p>
           </div>
 
           <div className="bg-[#166534] text-green-100 p-3 rounded-xl border border-green-500 text-sm w-full">
             <span className="inline-flex items-center gap-2 font-bold mb-1">
-              <img src={antennaState?.antennaColor === 'red' ? uiImages.wifiRed : uiImages.wifiBlue} alt={antennaState?.antennaColor === 'red' ? "紅色天線碎片" : "藍色天線碎片"} className="w-5 h-5 object-contain" />
-              你獲得了一半的通訊密碼（{antennaState?.passCode}）與{antennaState?.antennaColor === 'red' ? '紅' : '藍'}色天線碎片！
+              <img src={antennaState?.antennaColor === 'red' ? uiImages.wifiRed : uiImages.wifiBlue} alt={antennaState?.antennaColor === 'red' ? t('level6.antennaRedAlt') : t('level6.antennaBlueAlt')} className="w-5 h-5 object-contain" />
+              {t('level6.antennaGot', { passCode: antennaState?.passCode, color: antennaState?.antennaColor === 'red' ? t('level6.colorRed') : t('level6.colorBlue') })}
             </span>
           </div>
         </div>
@@ -205,23 +206,23 @@ export default function Level6GorillaPhoto() {
       <Modal
         isOpen={showError}
         onClose={() => { setShowError(false); navigate('/dashboard'); }}
-        title="認證失敗，進入冷卻"
+        title={t('level6.failTitle')}
         type="error"
         showCloseButton={true}
       >
-        <p className="text-white">尚未上傳有效照片，咚咚咚認為你們還沒準備好。</p>
-        <p className="text-sm text-pink-200 mt-2">冷卻時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level6.failMsg')}</p>
+        <p className="text-sm text-pink-200 mt-2">{t('level6.cooldownTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
       <Modal
         isOpen={isCoolingDown && !showError}
         onClose={() => navigate('/dashboard')}
-        title="關卡冷卻中"
+        title={t('level6.cooldownTitle')}
         type="warning"
         showCloseButton={true}
       >
-        <p className="text-white">此關暫時鎖定，請先去其他關卡完成任務。</p>
-        <p className="text-[#FBBF24] font-bold mt-2">剩餘時間：{formatCooldownTime(remainingMs)}</p>
+        <p className="text-white">{t('level6.cooldownMsg')}</p>
+        <p className="text-[#FBBF24] font-bold mt-2">{t('level6.remTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 
     </div>
