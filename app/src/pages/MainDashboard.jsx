@@ -97,6 +97,21 @@ export default function MainDashboard() {
   const collectedItemIds = targetIngredients.filter((item) => item.isCollected).map((item) => item.id);
   const collectedIngredients = targetIngredients.filter((item) => item.isCollected);
   const isSynthesisUnlocked = collectedIngredients.length === INGREDIENTS_META.length;
+  
+  const displayedItems = [...collectedIngredients];
+  if (progressMap['level6']?.status === 'completed' && progressMap['level6']?.antennaColor) {
+    const color = progressMap['level6'].antennaColor;
+    const passCode = progressMap['level6'].passCode || '???';
+    displayedItems.push({
+      id: 'antenna_fragment',
+      title: `${color === 'red' ? '紅色' : '藍色'}天線碎片`,
+      description: `包含一半的通訊密碼：${passCode}`,
+      isCollected: true,
+      imageSrc: color === 'red' ? uiImages.wifiRed : uiImages.wifiBlue,
+      activeColor: color === 'red' ? '#EF4444' : '#3B82F6'
+    });
+  }
+
   const levelProgressMap = useMemo(() => {
     const map = {};
     TASKS_META.forEach((task) => {
@@ -255,7 +270,7 @@ export default function MainDashboard() {
 
           {/* Collected Items Grid */}
           <div className="grid grid-cols-2 gap-4 pb-24">
-            {collectedIngredients.map((item) => (
+            {displayedItems.map((item) => (
               <ItemCard
                 key={item.id}
                 title={item.title}
@@ -265,7 +280,7 @@ export default function MainDashboard() {
                 glowColor={item.activeColor}
               />
             ))}
-            {collectedIngredients.length === 0 && (
+            {displayedItems.length === 0 && (
               <div className="col-span-2 rounded-2xl border border-dashed border-gray-600 bg-[#151A30]/70 px-4 py-8 text-center text-gray-400 text-sm">
                 目前還沒有已收集材料，請先前往關卡取得食材。
               </div>

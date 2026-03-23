@@ -443,3 +443,59 @@ export async function getSynthesisSupportPlan({ teamId, sessionId }) {
     globalMissingIngredients
   };
 }
+
+export async function assignAntennaAndPasscode({ teamId }) {
+  if (!isFirebaseEnabled || !db) {
+    const defaultColor = Math.random() > 0.5 ? 'red' : 'blue';
+    const passCode = Math.floor(100 + Math.random() * 900).toString();
+    return { antennaColor: defaultColor, passCode };
+  }
+
+  const teamsSnap = await getDocs(collection(db, 'teams'));
+  let redCount = 0;
+  let blueCount = 0;
+
+  for (const teamDoc of teamsSnap.docs) {
+    if (teamDoc.id === teamId) continue;
+    const teamData = teamDoc.data() || {};
+    const candidateSessionId = teamData.activeSessionId;
+    if (candidateSessionId) {
+      const progress = await getSessionProgress({ teamId: teamDoc.id, sessionId: candidateSessionId }).catch(() => ({}));
+      if (progress?.level6?.status === 'completed' && progress?.level6?.antennaColor) {
+        if (progress.level6.antennaColor === 'red') redCount++;
+        else if (progress.level6.antennaColor === 'blue') blueCount++;
+      }
+    }
+  }
+
+  let assignedColor;
+  if (redCount < blueCount) assignedColor = 'red';
+  else if (blueCount < redCount) assignedColor = 'blue';
+  else assignedColor = Math.random() > 0.5 ? 'red' : 'blue';
+
+  const passCode = Math.floor(100 + Math.random() * 900).toString();
+  return { antennaColor: assignedColor, passCode };
+}
+
+export async function getValidPartnerPasscodes({ teamId, partnerColor }) {
+  if (!isFirebaseEnabled || !db) return ['888']; // Demo fallback
+  
+  const teamsSnap = await getDocs(collection(db, 'teams'));
+  const validPasscodes = [];
+
+  for (const teamDoc of teamsSnap.docs) {
+    if (teamDoc.id === teamId) continue;
+    const teamData = teamDoc.data() || {};
+    const candidateSessionId = teamData.activeSessionId;
+    if (candidateSessionId) {
+      const progress = await getSessionProgress({ teamId: teamDoc.id, sessionId: candidateSessionId }).catch(() => ({}));
+      if (progress?.level6?.status === 'completed' && progress?.level6?.antennaColor === partnerColor) {
+        if (progress.level6.passCode) {
+          validPasscodes.push(progress.level6.passCode);
+        }
+      }
+    }
+  }
+  
+  return validPasscodes;
+}

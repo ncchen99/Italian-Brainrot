@@ -2,12 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera } from 'lucide-react';
 import Modal from '../components/Modal';
-import { characterAssets } from '../assets';
+import { characterAssets, uiImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { ensureAnonymousAuth } from '../services/authService';
 import { uploadImageToFirebaseStorage } from '../services/uploadService';
-import { saveLevelProgress, saveUploadRecord } from '../services/progressService';
+import { saveLevelProgress, saveUploadRecord, assignAntennaAndPasscode } from '../services/progressService';
 
 export default function Level6GorillaPhoto() {
   const navigate = useNavigate();
@@ -17,6 +17,7 @@ export default function Level6GorillaPhoto() {
   const [submitError, setSubmitError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [antennaState, setAntennaState] = useState(null);
   const fileInputRef = useRef(null);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level6');
   const { teamId, activeChallenge } = useAppSession();
@@ -64,6 +65,9 @@ export default function Level6GorillaPhoto() {
         });
 
         if (effectiveTeamId) {
+          const { antennaColor, passCode } = await assignAntennaAndPasscode({ teamId: effectiveTeamId });
+          setAntennaState({ antennaColor, passCode });
+
           await saveUploadRecord({
             teamId: effectiveTeamId,
             levelId: 'level6',
@@ -76,9 +80,13 @@ export default function Level6GorillaPhoto() {
             levelId: 'level6',
             status: 'completed',
             payload: {
-              proofImageUrl: uploadResult.publicUrl
+              proofImageUrl: uploadResult.publicUrl,
+              antennaColor,
+              passCode
             }
           });
+        } else {
+          setAntennaState({ antennaColor: 'blue', passCode: '000' });
         }
 
         setUploadStatus('success');
@@ -103,7 +111,7 @@ export default function Level6GorillaPhoto() {
         sessionId: activeChallenge.id,
         levelId: 'level6',
         status: 'failed'
-      }).catch(() => {});
+      }).catch(() => { });
     }
     triggerCooldown();
     setShowError(true);
@@ -113,9 +121,9 @@ export default function Level6GorillaPhoto() {
 
   return (
     <div className="w-full flex-1 flex flex-col justify-center animate-in slide-in-from-bottom duration-500">
-      
+
       <div className="bg-[#1A1D2E]/80 backdrop-blur-md p-6 rounded-[2rem] border-2 shadow-2xl mb-8 flex flex-col items-center" style={{ borderColor: `${currentLevelColor}50` }}>
-        
+
         <h2 className="text-[#FBBF24] font-bold text-xl text-center mb-2">大猩猩力量認證</h2>
         <p className="text-gray-300 text-sm text-center mb-6">
           請全隊一起擺出「大猩猩捶胸頓足」的超兇姿勢拍照上傳！
@@ -128,8 +136,8 @@ export default function Level6GorillaPhoto() {
               <img src={photoUrl} alt="Uploaded" className="w-full h-full object-cover" />
               {/* Overlay Watermark */}
               <div className="absolute top-2 right-2 flex items-center bg-black/60 rounded-lg p-2 backdrop-blur-sm border border-white/20">
-                 <img src={characterAssets.level6.image} alt="Tung Tung Tung Sahur" className="w-6 h-6 mr-2 object-contain" />
-                 <span className="text-[10px] text-white font-bold leading-none">Tung Tung<br/>Sahur</span>
+                <img src={characterAssets.level6.image} alt="Tung Tung Tung Sahur" className="w-6 h-6 mr-2 object-contain" />
+                <span className="text-[10px] text-white font-bold leading-none">Tung Tung<br />Sahur</span>
               </div>
             </>
           ) : (
@@ -138,10 +146,10 @@ export default function Level6GorillaPhoto() {
               <span>點擊上傳照片</span>
             </div>
           )}
-          
-          <input 
-            type="file" 
-            accept="image/*" 
+
+          <input
+            type="file"
+            accept="image/*"
             capture="environment"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             onChange={handlePhotoUpload}
@@ -153,12 +161,12 @@ export default function Level6GorillaPhoto() {
           onClick={handleSubmit}
           disabled={isCoolingDown || uploadStatus === 'uploading'}
           className={`w-full py-4 rounded-2xl font-bold shadow-lg text-white transition-all duration-300 active:scale-95 border-b-4 flex items-center justify-center gap-2
-            ${photoUrl 
-              ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6d28d9] border-[#4c1d95] shadow-[0_0_20px_rgba(139,92,246,0.5)]' 
+            ${photoUrl
+              ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6d28d9] border-[#4c1d95] shadow-[0_0_20px_rgba(139,92,246,0.5)]'
               : 'bg-gray-700 border-gray-900'}
           `}
         >
-          {uploadStatus === 'uploading' ? '上傳中...' : '送出認證！ ✅'}
+          {uploadStatus === 'uploading' ? '上傳中...' : '送出認證！'}
         </button>
         {submitError ? (
           <p className="mt-3 text-sm text-pink-200 bg-pink-900/40 border border-pink-500/40 rounded-xl px-3 py-2 w-full">
@@ -168,22 +176,29 @@ export default function Level6GorillaPhoto() {
 
       </div>
 
-      <Modal 
-        isOpen={showSuccess && !isCoolingDown} 
+      <Modal
+        isOpen={showSuccess && !isCoolingDown}
         onClose={() => navigate('/dashboard')}
         title="認證成功"
         type="success"
       >
         <div className="flex flex-col items-center">
-           <img src={characterAssets.level6.image} alt="Tung Tung Tung Sahur" className="w-20 h-20 mb-4 animate-bounce object-contain" />
-           <p className="text-white text-center font-bold mb-4">咚咚咚很滿意你們的力量！<br/>你獲得了食材收集提示！</p>
-           <div className="bg-[#1A1D2E] p-4 rounded-xl border border-[#FBBF24] text-center w-full shadow-inner">
-             <p className="text-[#FBBF24] text-xs mb-1">=== 闖關重點 ===</p>
-             <p className="text-white text-sm font-bold">
-               請繼續收集：麵粉、水、神聖番茄、帕瑪森起司、魔法羅勒葉 <br/>
-               回到 <span className="text-[#4ADE80]">合成協作站</span> 一起完成加工
-             </p>
-           </div>
+          <img src={characterAssets.level6.image} alt="Tung Tung Tung Sahur" className="w-20 h-20 mb-4 animate-bounce object-contain" />
+          <p className="text-white text-center font-bold mb-4">咚咚咚很滿意你們的力量！<br />你獲得了食材收集提示！</p>
+          <div className="bg-[#1A1D2E] p-4 rounded-xl border border-[#FBBF24] text-center w-full shadow-inner mb-4">
+            <p className="text-[#FBBF24] text-xs mb-1">=== 闖關重點 ===</p>
+            <p className="text-white text-sm font-bold">
+              請繼續收集：麵粉、水、神聖番茄、帕瑪森起司、魔法羅勒葉 <br />
+              回到 <span className="text-[#4ADE80]">合成協作站</span> 一起完成加工
+            </p>
+          </div>
+
+          <div className="bg-[#166534] text-green-100 p-3 rounded-xl border border-green-500 text-sm w-full">
+            <span className="inline-flex items-center gap-2 font-bold mb-1">
+              <img src={antennaState?.antennaColor === 'red' ? uiImages.wifiRed : uiImages.wifiBlue} alt={antennaState?.antennaColor === 'red' ? "紅色天線碎片" : "藍色天線碎片"} className="w-5 h-5 object-contain" />
+              你獲得了一半的通訊密碼（{antennaState?.passCode}）與{antennaState?.antennaColor === 'red' ? '紅' : '藍'}色天線碎片！
+            </span>
+          </div>
         </div>
       </Modal>
 

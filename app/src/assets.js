@@ -6,6 +6,8 @@ export const uiImages = {
   synthesizer: '/assets/images/synthesizer-machine.webp',
   ultimatePizza: '/assets/images/ultimate-margherita-pizza.webp',
   wifiFragments: '/assets/images/wifi-fragments.webp',
+  wifiBlue: '/assets/images/wifi-blue.webp',
+  wifiRed: '/assets/images/wifi-red.webp',
 };
 
 export const ingredientImages = {

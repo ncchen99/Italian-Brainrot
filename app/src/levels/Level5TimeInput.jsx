@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import NumericKeypad from '../components/NumericKeypad';
-import Modal from '../components/Modal';
 import { ingredientImages, uiImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
 import { useAppSession } from '../contexts/AppSessionContext';
@@ -28,7 +26,7 @@ export default function Level5TimeInput() {
     setTimeInput(prev => prev.slice(0, -1));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (isCoolingDown) return;
 
     if (timeInput === correctTime) {

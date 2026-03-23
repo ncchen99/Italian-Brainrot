@@ -5,18 +5,42 @@ import Modal from '../components/Modal';
 import { uiImages } from '../assets';
 import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown';
 import { useAppSession } from '../contexts/AppSessionContext';
-import { saveLevelProgress } from '../services/progressService';
+import { saveLevelProgress, getSessionProgress, getValidPartnerPasscodes } from '../services/progressService';
 
 export default function Level7AntennaSync() {
   const navigate = useNavigate();
   const [syncCode, setSyncCode] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level7');
-  const { teamId, activeChallenge } = useAppSession();
+  const { teamId, activeChallenge, loading: sessionLoading } = useAppSession();
   
-  // Randomly assign team A or B (Red or Blue antenna)
-  const [teamColor] = useState(() => (Math.random() > 0.5 ? 'red' : 'blue'));
+  const [level7State, setLevel7State] = useState({ loading: true, antennaColor: null, passCode: null, missingFragment: false });
+
+  React.useEffect(() => {
+    if (sessionLoading) return;
+    if (!teamId || !activeChallenge?.id) {
+      setLevel7State({ loading: false, missingFragment: true });
+      return;
+    }
+    
+    getSessionProgress({ teamId, sessionId: activeChallenge.id }).then(progressMap => {
+      const l6 = progressMap['level6'];
+      if (l6?.status === 'completed' && l6?.antennaColor) {
+        setLevel7State({
+          loading: false,
+          antennaColor: l6.antennaColor,
+          passCode: l6.passCode,
+          missingFragment: false
+        });
+      } else {
+        setLevel7State({ loading: false, missingFragment: true });
+      }
+    }).catch(() => {
+      setLevel7State({ loading: false, missingFragment: true });
+    });
+  }, [teamId, activeChallenge?.id, sessionLoading]);
 
   const handleKeyPress = (key) => {
     if (syncCode.length < 6) {
@@ -28,33 +52,44 @@ export default function Level7AntennaSync() {
     setSyncCode(prev => prev.slice(0, -1));
   };
 
-  const handleSubmit = () => {
-    if (isCoolingDown) return;
+  const handleSubmit = async () => {
+    if (isCoolingDown || submitting || level7State.loading || level7State.missingFragment) return;
+    setSubmitting(true);
 
-    // Demo correct code 888888
-    if (syncCode === '888888') {
-      if (teamId && activeChallenge?.id) {
-        saveLevelProgress({
-          teamId,
-          sessionId: activeChallenge.id,
-          levelId: 'level7',
-          status: 'completed'
-        }).catch(() => {});
+    const partnerColor = level7State.antennaColor === 'red' ? 'blue' : 'red';
+    
+    // Check if prefix is own password
+    if (syncCode.startsWith(level7State.passCode)) {
+      const partnerCode = syncCode.slice(3, 6);
+      const validCodes = await getValidPartnerPasscodes({ teamId, partnerColor });
+      
+      if (validCodes.includes(partnerCode)) {
+        if (teamId && activeChallenge?.id) {
+          saveLevelProgress({
+            teamId,
+            sessionId: activeChallenge.id,
+            levelId: 'level7',
+            status: 'completed'
+          }).catch(() => {});
+        }
+        setShowSuccess(true);
+        setSubmitting(false);
+        return;
       }
-      setShowSuccess(true);
-    } else {
-      if (teamId && activeChallenge?.id) {
-        saveLevelProgress({
-          teamId,
-          sessionId: activeChallenge.id,
-          levelId: 'level7',
-          status: 'failed'
-        }).catch(() => {});
-      }
-      triggerCooldown();
-      setShowError(true);
-      setSyncCode('');
     }
+
+    if (teamId && activeChallenge?.id) {
+      saveLevelProgress({
+        teamId,
+        sessionId: activeChallenge.id,
+        levelId: 'level7',
+        status: 'failed'
+      }).catch(() => {});
+    }
+    triggerCooldown();
+    setShowError(true);
+    setSyncCode('');
+    setSubmitting(false);
   };
 
   const formatDisplay = () => {
@@ -63,15 +98,29 @@ export default function Level7AntennaSync() {
   };
 
   const currentLevelColor = "#EF4444";
-  const myColorHex = teamColor === 'red' ? '#EF4444' : '#3B82F6';
-  const myColorName = teamColor === 'red' ? '紅色' : '藍色';
-  const partnerColorName = teamColor === 'red' ? '藍色' : '紅色';
-  const myCodePart = teamColor === 'red' ? '888' : '888'; // Simplify for demo
+  const myColorHex = level7State.antennaColor === 'red' ? '#EF4444' : '#3B82F6';
+  const myColorName = level7State.antennaColor === 'red' ? '紅色' : '藍色';
+  const partnerColorName = level7State.antennaColor === 'red' ? '藍色' : '紅色';
+  const myCodePart = level7State.passCode || '---';
+
+  if (level7State.loading) return <div className="text-white flex-1 flex items-center justify-center">Loading...</div>;
 
   return (
     <div className="w-full flex-1 flex flex-col justify-center animate-in slide-in-from-bottom duration-500">
       
-      <div className="bg-[#1A1D2E]/80 backdrop-blur-md p-6 rounded-[2rem] border-2 shadow-2xl mb-8" style={{ borderColor: `${currentLevelColor}50` }}>
+      {level7State.missingFragment && (
+        <Modal 
+          isOpen={true} 
+          onClose={() => navigate('/dashboard')}
+          title="尚未獲得天線"
+          type="warning"
+          showCloseButton={true}
+        >
+          <p className="text-white">現在還沒有天線的碎片！必須先完成前面的關卡找到碎片才能通訊。</p>
+        </Modal>
+      )}
+
+      <div className="bg-[#1A1D2E]/80 backdrop-blur-md p-6 rounded-[2rem] border-2 shadow-2xl mb-8" style={{ borderColor: `${currentLevelColor}50`, opacity: level7State.missingFragment ? 0.3 : 1 }}>
         
         <h2 className="text-[#FBBF24] font-bold text-xl text-center mb-4">潮鞋防衛戰（雙人合作）</h2>
         
@@ -81,7 +130,7 @@ export default function Level7AntennaSync() {
              className="w-16 h-16 rounded-full flex items-center justify-center text-2xl border-4 animate-pulse mb-2 shadow-[0_0_15px_currentColor]"
              style={{ borderColor: myColorHex, color: myColorHex }}
            >
-             <img src={uiImages.wifiFragments} alt="Antenna" className="w-9 h-9 object-contain" />
+             <img src={level7State.antennaColor === 'red' ? uiImages.wifiRed : uiImages.wifiBlue} alt="Antenna" className="w-9 h-9 object-contain" />
            </div>
            <div className="font-bold text-lg" style={{ color: myColorHex }}>
              {myColorName}訊號
