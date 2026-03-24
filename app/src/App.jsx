@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 // Pages
 import LoginPage from './pages/LoginPage';
 import MainDashboard from './pages/MainDashboard';
+import AdminLoginPage from './pages/AdminLoginPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 // import ResultPage from './pages/ResultPage';
 // import SynthesisRoom from './pages/SynthesisRoom';
 // import VictoryPage from './pages/VictoryPage';
@@ -21,7 +23,7 @@ import Level7AntennaSync from './levels/Level7AntennaSync';
 // Endgame Pages
 import ResultPage from './pages/ResultPage';
 import VictoryPage from './pages/VictoryPage';
-import HiddenResetPage from './pages/HiddenResetPage';
+// HiddenResetPage removed — account deletion is handled by the admin panel
 import ScanProtectedIntroRoute from './components/ScanProtectedIntroRoute';
 import ScanProtectedLevelRoute from './components/ScanProtectedLevelRoute';
 import ScanProtectedSynthesisRoute from './components/ScanProtectedSynthesisRoute';
@@ -52,6 +54,21 @@ function LoginRoute() {
   return <LoginPage />;
 }
 
+function ProtectedRoute({ children }) {
+  const { loading, teamId, teamName } = useAppSession();
+
+  if (loading) {
+    return null;
+  }
+
+  const hasLoginState = Boolean(teamId && teamName?.trim());
+  if (!hasLoginState) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   const { t } = useTranslation();
   return (
@@ -60,20 +77,26 @@ function App() {
         <Routes>
           <Route path="/" element={<RootRedirectRoute />} />
           <Route path="/login" element={<LoginRoute />} />
-          <Route path="/dashboard" element={<MainDashboard />} />
-          <Route path="/intro/:characterId" element={<ScanProtectedIntroRoute />} />
-          <Route path="/level/level1" element={<ScanProtectedLevelRoute levelId="level1" levelTitle={t('level1.title')} characterColor="#7C5CFC"><Level1NinjaSort /></ScanProtectedLevelRoute>} />
-          <Route path="/level/level2" element={<ScanProtectedLevelRoute levelId="level2" levelTitle={t('level2.title')} characterColor="#F472B6"><Level2SafeLock /></ScanProtectedLevelRoute>} />
-          <Route path="/level/level3" element={<ScanProtectedLevelRoute levelId="level3" levelTitle={t('level3.title')} characterColor="#4ADE80"><Level3TapChallenge /></ScanProtectedLevelRoute>} />
-          <Route path="/level/level4" element={<ScanProtectedLevelRoute levelId="level4" levelTitle={t('level4.title')} characterColor="#38BDF8"><Level4WaterBalloonSort /></ScanProtectedLevelRoute>} />
-          <Route path="/level/level5" element={<ScanProtectedLevelRoute levelId="level5" levelTitle={t('level5.title')} characterColor="#FBBF24"><Level5TimeInput /></ScanProtectedLevelRoute>} />
-          <Route path="/level/level6" element={<ScanProtectedLevelRoute levelId="level6" levelTitle={t('level6.title')} characterColor="#8B5CF6"><Level6GorillaPhoto /></ScanProtectedLevelRoute>} />
-          <Route path="/level/level7" element={<ScanProtectedLevelRoute levelId="level7" levelTitle={t('level7.title')} characterColor="#EF4444"><Level7AntennaSync /></ScanProtectedLevelRoute>} />
-          <Route path="/level/:levelId" element={<ScanProtectedLevelRoute />} />
-          <Route path="/result" element={<ResultPage />} />
-          <Route path="/synthesis" element={<ScanProtectedSynthesisRoute />} />
-          <Route path="/victory" element={<VictoryPage />} />
-          <Route path="/_sync/health-check-9a7f" element={<HiddenResetPage />} />
+          
+          <Route path="/dashboard" element={<ProtectedRoute><MainDashboard /></ProtectedRoute>} />
+          <Route path="/intro/:characterId" element={<ProtectedRoute><ScanProtectedIntroRoute /></ProtectedRoute>} />
+          
+          <Route path="/level/level1" element={<ProtectedRoute><ScanProtectedLevelRoute levelId="level1" levelTitle={t('level1.title')} characterColor="#7C5CFC"><Level1NinjaSort /></ScanProtectedLevelRoute></ProtectedRoute>} />
+          <Route path="/level/level2" element={<ProtectedRoute><ScanProtectedLevelRoute levelId="level2" levelTitle={t('level2.title')} characterColor="#F472B6"><Level2SafeLock /></ScanProtectedLevelRoute></ProtectedRoute>} />
+          <Route path="/level/level3" element={<ProtectedRoute><ScanProtectedLevelRoute levelId="level3" levelTitle={t('level3.title')} characterColor="#4ADE80"><Level3TapChallenge /></ScanProtectedLevelRoute></ProtectedRoute>} />
+          <Route path="/level/level4" element={<ProtectedRoute><ScanProtectedLevelRoute levelId="level4" levelTitle={t('level4.title')} characterColor="#38BDF8"><Level4WaterBalloonSort /></ScanProtectedLevelRoute></ProtectedRoute>} />
+          <Route path="/level/level5" element={<ProtectedRoute><ScanProtectedLevelRoute levelId="level5" levelTitle={t('level5.title')} characterColor="#FBBF24"><Level5TimeInput /></ScanProtectedLevelRoute></ProtectedRoute>} />
+          <Route path="/level/level6" element={<ProtectedRoute><ScanProtectedLevelRoute levelId="level6" levelTitle={t('level6.title')} characterColor="#8B5CF6"><Level6GorillaPhoto /></ScanProtectedLevelRoute></ProtectedRoute>} />
+          <Route path="/level/level7" element={<ProtectedRoute><ScanProtectedLevelRoute levelId="level7" levelTitle={t('level7.title')} characterColor="#EF4444"><Level7AntennaSync /></ScanProtectedLevelRoute></ProtectedRoute>} />
+          
+          <Route path="/level/:levelId" element={<ProtectedRoute><ScanProtectedLevelRoute /></ProtectedRoute>} />
+          <Route path="/result" element={<ProtectedRoute><ResultPage /></ProtectedRoute>} />
+          <Route path="/synthesis" element={<ProtectedRoute><ScanProtectedSynthesisRoute /></ProtectedRoute>} />
+          <Route path="/victory" element={<ProtectedRoute><VictoryPage /></ProtectedRoute>} />
+          
+          {/* Admin panel – secret path */}
+          <Route path="/admin" element={<AdminLoginPage />} />
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
         </Routes>
       </div>
     </BrowserRouter>

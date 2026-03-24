@@ -11,7 +11,7 @@ export default function BottomNavigationBar({ activeTab = 'backpack', onTabChang
         {/* Backpack Tab */}
         <button 
           onClick={() => onTabChange?.('backpack')}
-          className={`flex-1 flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 ${activeTab === 'backpack' ? 'text-[#7C5CFC] bg-white/5' : 'text-gray-400 hover:text-[#FBBF24]'}`}
+          className={`flex-1 flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 ${activeTab === 'backpack' ? 'text-[#7C5CFC]' : 'text-gray-400 hover:text-[#FBBF24]'}`}
         >
           <Backpack size={24} />
           <span className="text-xs mt-1 font-bold">{t('nav.backpack')}</span>
@@ -31,7 +31,7 @@ export default function BottomNavigationBar({ activeTab = 'backpack', onTabChang
         {/* Tasks Tab */}
         <button 
           onClick={() => onTabChange?.('tasks')}
-          className={`flex-1 flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 ${activeTab === 'tasks' ? 'text-[#FBBF24] bg-white/5' : 'text-gray-400 hover:text-[#FBBF24]'}`}
+          className={`flex-1 flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 ${activeTab === 'tasks' ? 'text-[#FBBF24]' : 'text-gray-400 hover:text-[#FBBF24]'}`}
         >
           <ClipboardList size={24} />
           <span className="text-xs mt-1 font-bold">{t('nav.tasks')}</span>

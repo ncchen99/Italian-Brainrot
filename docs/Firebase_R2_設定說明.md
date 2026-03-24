@@ -11,16 +11,26 @@
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 
-## 2) Firebase 功能
+## 2) Firebase 功能與權限 (重要)
 
-目前已接入：
+本專案使用 **Firestore 集合** 來管理後臺權限。請務必完成以下手動設定：
 
-- 匿名登入（Anonymous Auth）
+### A. 建立管理員清單 (Firestore)
+1. 前往 Firebase Console -> **Firestore Database**。
+2. 點擊「開始使用集合」，集合名稱輸入：`admins`。
+3. 新增文件：
+   - **文件 ID**：直接輸入你的 **Google 帳號 Email** (例如 `your-name@gmail.com`)。需注意全小寫。
+   - **欄位**：`role`: `admin` (字串)。
+4. 未來若要增加管理員，只需在此集合新增該人員的 Email 文件即可。
+
+### B. 支援的功能路徑
+- 匿名登入 (Anonymous Auth)
 - 小隊資料：`teams/{teamId}`
 - 關卡進度：`teams/{teamId}/progress/{levelId}`
 - 冷卻時間：`teams/{teamId}/cooldowns/{levelId}`
 - 上傳紀錄：`teams/{teamId}/uploads/{autoId}`
 - 掃碼紀錄：`teams/{teamId}/scanAccess/{routeKey}`
+- 挑戰場次：`teams/{teamId}/challengeSessions/{sessionId}`
 
 ## 3) Firebase Storage 上傳流程
 
@@ -32,14 +42,23 @@
 
 ## 4) Firebase Storage 規則建議
 
-可先使用測試規則（僅供開發）：
+請在 Firebase Console -> Storage -> Rules 貼入以下規則。管理員將擁有所有圖片的讀取與刪除權限。
 
 ```txt
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // 輔助函式：檢查是否為管理員 (讀取 Firestore admins 集合)
+    function isAdmin() {
+      return request.auth != null && 
+             firestore.exists(/databases/(default)/documents/admins/$(request.auth.token.email));
+    }
+
+    // 圖片路徑規則：uploads/{teamId}/{allPaths=**}
     match /uploads/{teamId}/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      // 隊伍本人可讀寫；管理員可讀取與刪除
+      allow read: if request.auth.uid == teamId || isAdmin();
+      allow write: if request.auth.uid == teamId || isAdmin();
     }
   }
 }
@@ -49,10 +68,11 @@ service firebase.storage {
 
 ## 5) Firestore 規則建議（重要）
 
-目前專案有「跨隊伍查詢合成支援」需求（`getSynthesisSupportPlan` 會讀取其他隊伍的 session 進度），
-如果 Firestore 規則只允許 `request.auth.uid == teamId` 的全路徑讀取，就會造成監聽或查詢資料不更新。
+目前專案有兩個跨隊伍查詢需求：
+1. **合成支援**：`getSynthesisSupportPlan` 會讀取其他隊伍的 session 進度
+2. **後臺管理**：Admin 必須能讀取所有隊伍的全部子集合（sessions、progress、uploads 等）
 
-請改用以下規則（可直接貼到 Firestore Rules）：
+請改用以下規則（可直接貼到 Firebase Console → Firestore → Rules）：
 
 ```txt
 rules_version = '2';
@@ -64,42 +84,32 @@ service cloud.firestore {
     function isOwner(teamId) {
       return signedIn() && request.auth.uid == teamId;
     }
+    // 從 admins 集合中檢查當前使用者的 Email 是否存在
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
 
-    // teams 主文件：自己可讀寫；其他登入隊伍可讀（供合成支援查詢 teamName / activeSessionId）
+    // teams 主文件：只有本人或 admin 可以刪除
     match /teams/{teamId} {
       allow read: if signedIn();
-      allow write: if isOwner(teamId);
+      allow write: if isOwner(teamId) || isAdmin();
     }
 
-    // 自己的常用資料：只允許本人讀寫
-    match /teams/{teamId}/progress/{levelId} {
-      allow read, write: if isOwner(teamId);
-    }
-    match /teams/{teamId}/cooldowns/{levelId} {
-      allow read, write: if isOwner(teamId);
-    }
-    match /teams/{teamId}/uploads/{uploadId} {
-      allow read, write: if isOwner(teamId);
-    }
-    match /teams/{teamId}/scanAccess/{routeKey} {
-      allow read, write: if isOwner(teamId);
+    // 子文件（progress、cooldowns、uploads、scanAccess 等）：本人或 admin 可讀寫
+    match /teams/{teamId}/{document=**} {
+      allow read, write: if isOwner(teamId) || isAdmin();
     }
 
-    // challengeSessions 主文件：自己可讀寫；其他登入隊伍可讀（供查 activeSessionId）
+    // challengeSessions 主文件：管理員與已登入用戶可讀；本人或 admin 可寫
     match /teams/{teamId}/challengeSessions/{sessionId} {
       allow read: if signedIn();
-      allow write: if isOwner(teamId);
+      allow write: if isOwner(teamId) || isAdmin();
     }
 
-    // session progress：自己可寫；登入隊伍可讀（供跨隊伍合成支援統計）
+    // session progress：管理員與已登入用戶可讀；本人或 admin 可寫
     match /teams/{teamId}/challengeSessions/{sessionId}/progress/{levelId} {
       allow read: if signedIn();
-      allow write: if isOwner(teamId);
-    }
-
-    // 其他未列出的 teams 子集合，預設只允許本人
-    match /teams/{teamId}/{document=**} {
-      allow read, write: if isOwner(teamId);
+      allow write: if isOwner(teamId) || isAdmin();
     }
   }
 }

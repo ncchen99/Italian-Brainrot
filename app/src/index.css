@@ -34,6 +34,9 @@
   body {
     background-color: var(--color-bg-dark);
     color: var(--color-text-main);
+  }
+
+  body, button, input, textarea, select {
     font-family: var(--font-handwriting);
     margin: 0;
     padding: 0;

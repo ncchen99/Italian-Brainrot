@@ -1,5 +1,5 @@
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseEnabled } from '../lib/firebase';
 
 const LOCAL_AUTH_KEY = 'ibr-local-anon-uid';
@@ -39,6 +39,20 @@ export function subscribeAuthState(callback) {
 
   return onAuthStateChanged(auth, (user) => {
     callback(user || null);
+  });
+}
+
+/**
+ * Subscribe to the team document. If it's deleted, trigger the callback.
+ */
+export function subscribeTeamDeletion(uid, onDeleted) {
+  if (!isFirebaseEnabled || !db || !uid) return () => {};
+
+  const teamRef = doc(db, 'teams', uid);
+  return onSnapshot(teamRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      onDeleted();
+    }
   });
 }
 

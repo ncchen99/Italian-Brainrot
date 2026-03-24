@@ -5,6 +5,7 @@ import {
   ensureAnonymousAuth,
   getStoredTeamName,
   subscribeAuthState,
+  subscribeTeamDeletion,
   upsertTeamProfile
 } from '../services/authService';
 import { clearScanAccess } from '../services/scanAccessService';
@@ -68,6 +69,49 @@ export function AppSessionProvider({ children }) {
   const [activeChallenge, setActiveChallenge] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const clearSessionState = () => {
+    clearStoredAuthState();
+    clearScanAccess();
+    clearLocalChallengeCache();
+    if (user?.uid) {
+      clearCachedActiveChallenge(user.uid);
+    }
+    setUser(null);
+    setTeamName('');
+    setActiveChallenge(null);
+  };
+
+  const bindTeamProfile = async (inputTeamName) => {
+    const authUser = await ensureAnonymousAuth();
+    const profile = await upsertTeamProfile({
+      uid: authUser.uid,
+      teamName: inputTeamName
+    });
+    const existingSession = await getActiveChallengeSession({ teamId: authUser.uid }).catch(() => null);
+    const hasActiveSession = Boolean(existingSession?.id && Number(existingSession?.endsAtMs) > Date.now());
+
+    if (!hasActiveSession) {
+      clearScanAccess();
+      clearLocalChallengeCache();
+    }
+
+    const session = hasActiveSession
+      ? existingSession
+      : await startChallengeSession({
+          teamId: authUser.uid,
+          teamName: profile.teamName
+        });
+    if (session?.id && Number(session?.endsAtMs) > Date.now()) {
+      writeCachedActiveChallenge(authUser.uid, session);
+    } else {
+      clearCachedActiveChallenge(authUser.uid);
+    }
+    setUser(authUser);
+    setTeamName(profile.teamName);
+    setActiveChallenge(session);
+    return profile;
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeAuthState((authUser) => {
       setUser(authUser);
@@ -114,48 +158,20 @@ export function AppSessionProvider({ children }) {
     };
   }, [user?.uid]);
 
-  const bindTeamProfile = async (inputTeamName) => {
-    const authUser = await ensureAnonymousAuth();
-    const profile = await upsertTeamProfile({
-      uid: authUser.uid,
-      teamName: inputTeamName
+  // Listen for team document deletion (Admin action)
+  useEffect(() => {
+    if (!user?.uid || user?.isLocalFallback) return;
+    // Only care if we actually have a team name (i.e., we are already "logged in" as a specific team)
+    if (!teamName) return;
+
+    const unsubscribe = subscribeTeamDeletion(user.uid, () => {
+      console.log(`[AppSession] Team document for ${user.uid} was deleted (possibly by Admin). Clearing session.`);
+      clearSessionState();
     });
-    const existingSession = await getActiveChallengeSession({ teamId: authUser.uid }).catch(() => null);
-    const hasActiveSession = Boolean(existingSession?.id && Number(existingSession?.endsAtMs) > Date.now());
 
-    if (!hasActiveSession) {
-      clearScanAccess();
-      clearLocalChallengeCache();
-    }
+    return unsubscribe;
+  }, [user?.uid, teamName]);
 
-    const session = hasActiveSession
-      ? existingSession
-      : await startChallengeSession({
-          teamId: authUser.uid,
-          teamName: profile.teamName
-        });
-    if (session?.id && Number(session?.endsAtMs) > Date.now()) {
-      writeCachedActiveChallenge(authUser.uid, session);
-    } else {
-      clearCachedActiveChallenge(authUser.uid);
-    }
-    setUser(authUser);
-    setTeamName(profile.teamName);
-    setActiveChallenge(session);
-    return profile;
-  };
-
-  const clearSessionState = () => {
-    clearStoredAuthState();
-    clearScanAccess();
-    clearLocalChallengeCache();
-    if (user?.uid) {
-      clearCachedActiveChallenge(user.uid);
-    }
-    setUser(null);
-    setTeamName('');
-    setActiveChallenge(null);
-  };
 
   const value = useMemo(() => ({
     user,
