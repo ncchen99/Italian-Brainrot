@@ -7,7 +7,8 @@ import {
   getTeamSessionDetail,
   getAllTeamSessions,
   getTeamUploads,
-  deleteTeam
+  deleteTeam,
+  checkIsAdmin
 } from '../services/adminService';
 import { 
   ClockIcon, 
@@ -477,12 +478,15 @@ export default function AdminDashboardPage() {
   // Auth guard
   useEffect(() => {
     if (!auth) { navigate('/admin', { replace: true }); return; }
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (!user || user.email !== ADMIN_EMAIL) {
-        navigate('/admin', { replace: true });
-      } else {
-        setAuthChecking(false);
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const isAdmin = (user.email === ADMIN_EMAIL) || (await checkIsAdmin(user.email));
+        if (isAdmin) {
+          setAuthChecking(false);
+          return;
+        }
       }
+      navigate('/admin', { replace: true });
     });
     return unsub;
   }, [navigate]);

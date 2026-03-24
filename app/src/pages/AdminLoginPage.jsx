@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { checkIsAdmin } from '../services/adminService';
 import { 
   ExclamationCircleIcon,
   AcademicCapIcon
@@ -18,13 +19,17 @@ export default function AdminLoginPage() {
   // If already signed in as admin, go straight to dashboard
   useEffect(() => {
     if (!auth) { setChecking(false); return; }
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user && user.email === ADMIN_EMAIL) {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        if (user) signOut(auth).catch(() => { });
-        setChecking(false);
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const isAdmin = (user.email === ADMIN_EMAIL) || (await checkIsAdmin(user.email));
+        if (isAdmin) {
+          navigate('/admin/dashboard', { replace: true });
+          return;
+        } else {
+          try { await signOut(auth); } catch {}
+        }
       }
+      setChecking(false);
     });
     return unsub;
   }, [navigate]);
@@ -39,11 +44,12 @@ export default function AdminLoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      if (result.user.email !== ADMIN_EMAIL) {
+      const isAdmin = (result.user.email === ADMIN_EMAIL) || (await checkIsAdmin(result.user.email));
+      if (!isAdmin) {
         await signOut(auth);
         setErrorMsg(`此帳號（${result.user.email}）沒有管理員權限。`);
       }
-      // onAuthStateChanged will redirect if valid
+      // onAuthStateChanged will handle redirection if isAdmin is true
     } catch (err) {
       if (err.code === 'auth/popup-closed-by-user') {
         setErrorMsg('登入視窗已關閉，請重新嘗試。');

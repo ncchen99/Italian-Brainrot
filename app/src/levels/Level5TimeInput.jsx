@@ -5,6 +5,8 @@ import useLevelCooldown, { formatCooldownTime } from '../hooks/useLevelCooldown'
 import { useAppSession } from '../contexts/AppSessionContext';
 import { saveLevelProgress } from '../services/progressService';
 import { useTranslation } from 'react-i18next';
+import NumericKeypad from '../components/NumericKeypad';
+import Modal from '../components/Modal';
 
 export default function Level5TimeInput() {
   const navigate = useNavigate();

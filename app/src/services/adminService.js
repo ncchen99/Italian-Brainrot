@@ -12,6 +12,22 @@ import {
 import { deleteObject, ref } from 'firebase/storage';
 import { db, storage, isFirebaseEnabled, isFirebaseStorageEnabled } from '../lib/firebase';
 
+/**
+ * Check if the given email is registered in the 'admins' collection.
+ * Assumes the document ID is the email address.
+ */
+export async function checkIsAdmin(email) {
+  if (!isFirebaseEnabled || !db || !email) return false;
+  try {
+    const adminDoc = await getDoc(doc(db, 'admins', email));
+    return adminDoc.exists();
+  } catch (err) {
+    console.error('Check admin error:', err);
+    return false;
+  }
+}
+
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 async function deleteCollectionDocs(pathSegments) {
