@@ -31,6 +31,7 @@
 - 上傳紀錄：`teams/{teamId}/uploads/{autoId}`
 - 掃碼紀錄：`teams/{teamId}/scanAccess/{routeKey}`
 - 挑戰場次：`teams/{teamId}/challengeSessions/{sessionId}`
+- 合成協作站：`synthesisSessions/{stationCode}`（跨隊共用，root-level 集合）
 
 ## 3) Firebase Storage 上傳流程
 
@@ -68,9 +69,10 @@ service firebase.storage {
 
 ## 5) Firestore 規則建議（重要）
 
-目前專案有兩個跨隊伍查詢需求：
+目前專案有三個跨隊伍查詢需求：
 1. **合成支援**：`getSynthesisSupportPlan` 會讀取其他隊伍的 session 進度
 2. **後臺管理**：Admin 必須能讀取所有隊伍的全部子集合（sessions、progress、uploads 等）
+3. **合成協作站**：`synthesisSessions/{stationCode}` 是 root-level 集合，任何登入中的隊伍都必須能讀寫
 
 請改用以下規則（可直接貼到 Firebase Console → Firestore → Rules）：
 
@@ -110,6 +112,11 @@ service cloud.firestore {
     match /teams/{teamId}/challengeSessions/{sessionId}/progress/{levelId} {
       allow read: if signedIn();
       allow write: if isOwner(teamId) || isAdmin();
+    }
+
+    // 合成協作站：跨隊共用，任何登入中的玩家皆可讀寫
+    match /synthesisSessions/{stationCode} {
+      allow read, write: if signedIn();
     }
   }
 }

@@ -172,9 +172,9 @@ export default function SynthesisRoom() {
     }
   };
 
-  const handleJoinStation = async () => {
-    const code = joinCodeInput.trim();
-    if (!teamId || !code) return;
+  const handleJoinStation = async (codeOverride) => {
+    const code = (codeOverride ?? joinCodeInput).trim();
+    if (!teamId || code.length < 6) return;
     setIsJoining(true);
     setJoinError(null);
     try {
@@ -288,24 +288,25 @@ export default function SynthesisRoom() {
                 <div className="flex-1 h-px bg-white/10" />
               </div>
 
-              <div className="flex gap-2">
+              <div className="relative">
                 <input
                   type="text"
                   inputMode="numeric"
                   value={joinCodeInput}
-                  onChange={(e) => setJoinCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleJoinStation(); }}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setJoinCodeInput(val);
+                    if (val.length === 6 && !isJoining) handleJoinStation(val);
+                  }}
                   placeholder={t('synthesis.joinPlaceholder')}
-                  className="flex-1 rounded-xl bg-white/5 border border-white/20 px-3 py-3 text-white text-center text-xl font-mono tracking-widest placeholder-gray-600 focus:outline-none focus:border-[#7C5CFC]/60"
+                  disabled={isJoining}
+                  className="w-full rounded-xl bg-white/5 border border-white/20 px-3 py-3 text-white text-center text-xl font-mono tracking-widest placeholder-gray-600 focus:outline-none focus:border-[#7C5CFC]/60 disabled:opacity-60"
                 />
-                <button
-                  type="button"
-                  disabled={isJoining || !joinCodeInput.trim()}
-                  onClick={handleJoinStation}
-                  className="px-4 py-3 rounded-xl font-bold text-white bg-[#1A1D2E] border border-[#7C5CFC]/40 active:scale-95 disabled:opacity-50"
-                >
-                  {isJoining ? '...' : t('synthesis.joinBtn')}
-                </button>
+                {isJoining && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-[#7C5CFC] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
 
               {joinError && (
@@ -352,49 +353,51 @@ export default function SynthesisRoom() {
             <div className="bg-[#1A1D2E]/50 backdrop-blur-md rounded-[2rem] border border-[#7C5CFC]/30 p-5 flex flex-col gap-4">
               <p className="text-center text-sm text-gray-400">{t('synthesis.slotsTitle')}</p>
 
-              <div className="flex justify-center gap-2">
-                {INGREDIENT_META.map((meta) => {
-                  const placedByTeam = placementMap[meta.id];
-                  const isMine = myIngredients.includes(meta.id);
-                  const isMyPlaced = placedByTeam === teamId;
-                  const isAllyPlaced = placedByTeam && placedByTeam !== teamId;
-                  const isEmpty = !placedByTeam;
+              {[INGREDIENT_META.slice(0, 3), INGREDIENT_META.slice(3)].map((row, rowIdx) => (
+                <div key={rowIdx} className="flex justify-center gap-3">
+                  {row.map((meta) => {
+                    const placedByTeam = placementMap[meta.id];
+                    const isMine = myIngredients.includes(meta.id);
+                    const isMyPlaced = placedByTeam === teamId;
+                    const isAllyPlaced = placedByTeam && placedByTeam !== teamId;
+                    const isEmpty = !placedByTeam;
 
-                  return (
-                    <div key={meta.id} className="flex flex-col items-center gap-1">
-                      <div
-                        onClick={() => {
-                          if (isMyPlaced) handleRemoveIngredient(meta.id);
-                          else if (isEmpty && isMine) handlePlaceIngredient(meta.id);
-                        }}
-                        className={[
-                          'relative flex items-center justify-center w-14 h-14 rounded-xl border-2 transition-all duration-200',
-                          placedByTeam ? 'border-transparent' : 'border-dashed border-gray-600 bg-gray-800/30',
-                          isMyPlaced ? 'cursor-pointer active:scale-95 ring-2 ring-[#7C5CFC]/50' : '',
-                          isEmpty && isMine ? 'cursor-pointer hover:border-[#7C5CFC]/60 hover:bg-[#7C5CFC]/10' : ''
-                        ].join(' ')}
-                        style={{ backgroundColor: placedByTeam ? `${meta.color}40` : '' }}
-                      >
-                        {placedByTeam ? (
-                          <>
-                            <img src={meta.imageSrc} alt={t(meta.labelKey)} className="w-10 h-10 object-contain" />
-                            {isAllyPlaced && (
-                              <span className="absolute -top-2 -right-2 text-[9px] bg-[#4ADE80] text-black font-bold rounded-full px-1 leading-4">
-                                {t('synthesis.allyBadge')}
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-gray-600 text-xl">?</span>
-                        )}
+                    return (
+                      <div key={meta.id} className="flex flex-col items-center gap-1">
+                        <div
+                          onClick={() => {
+                            if (isMyPlaced) handleRemoveIngredient(meta.id);
+                            else if (isEmpty && isMine) handlePlaceIngredient(meta.id);
+                          }}
+                          className={[
+                            'relative flex items-center justify-center w-16 h-16 rounded-xl border-2 transition-all duration-200',
+                            placedByTeam ? 'border-transparent' : 'border-dashed border-gray-600 bg-gray-800/30',
+                            isMyPlaced ? 'cursor-pointer active:scale-95 ring-2 ring-[#7C5CFC]/50' : '',
+                            isEmpty && isMine ? 'cursor-pointer hover:border-[#7C5CFC]/60 hover:bg-[#7C5CFC]/10' : ''
+                          ].join(' ')}
+                          style={{ backgroundColor: placedByTeam ? `${meta.color}40` : '' }}
+                        >
+                          {placedByTeam ? (
+                            <>
+                              <img src={meta.imageSrc} alt={t(meta.labelKey)} className="w-11 h-11 object-contain" />
+                              {isAllyPlaced && (
+                                <span className="absolute -top-2 -right-2 text-[9px] bg-[#4ADE80] text-black font-bold rounded-full px-1 leading-4">
+                                  {t('synthesis.allyBadge')}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-gray-600 text-xl">?</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-gray-500 text-center leading-tight w-16">
+                          {t(meta.labelKey)}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-gray-500 text-center leading-tight w-14">
-                        {t(meta.labelKey)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ))}
 
               <p className="text-center text-xs text-gray-500">
                 {allPlacedCount}/5 {t('synthesis.ingredientsPlaced')}
