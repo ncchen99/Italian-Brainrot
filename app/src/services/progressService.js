@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db, isFirebaseEnabled } from '../lib/firebase';
 
 const COOLDOWN_CACHE_PREFIX = 'ibr-cooldown';
@@ -15,6 +15,11 @@ const REQUIRED_SYNTHESIS_INGREDIENTS = Object.values(SYNTHESIS_LEVEL_INGREDIENT_
 
 function getCooldownCacheKey(teamId, levelId) {
   return `${COOLDOWN_CACHE_PREFIX}:${teamId}:${levelId}`;
+}
+
+function isSessionActive(teamData) {
+  const endsAtMs = Number(teamData?.activeSessionEndsAtMs);
+  return Number.isFinite(endsAtMs) && endsAtMs > Date.now();
 }
 
 export function clearLocalChallengeCache() {
@@ -386,7 +391,7 @@ export async function getSynthesisSupportPlan({ teamId, sessionId }) {
 
       const teamData = teamDoc.data() || {};
       const candidateSessionId = teamData.activeSessionId;
-      if (!candidateSessionId) return;
+      if (!candidateSessionId || !isSessionActive(teamData)) return;
 
       const progress = await getSessionProgress({
         teamId: teamDoc.id,
@@ -459,12 +464,11 @@ export async function assignAntennaAndPasscode({ teamId }) {
     if (teamDoc.id === teamId) continue;
     const teamData = teamDoc.data() || {};
     const candidateSessionId = teamData.activeSessionId;
-    if (candidateSessionId) {
-      const progress = await getSessionProgress({ teamId: teamDoc.id, sessionId: candidateSessionId }).catch(() => ({}));
-      if (progress?.level6?.status === 'completed' && progress?.level6?.antennaColor) {
-        if (progress.level6.antennaColor === 'red') redCount++;
-        else if (progress.level6.antennaColor === 'blue') blueCount++;
-      }
+    if (!candidateSessionId || !isSessionActive(teamData)) continue;
+    const progress = await getSessionProgress({ teamId: teamDoc.id, sessionId: candidateSessionId }).catch(() => ({}));
+    if (progress?.level6?.status === 'completed' && progress?.level6?.antennaColor) {
+      if (progress.level6.antennaColor === 'red') redCount++;
+      else if (progress.level6.antennaColor === 'blue') blueCount++;
     }
   }
 
@@ -477,6 +481,106 @@ export async function assignAntennaAndPasscode({ teamId }) {
   return { antennaColor: assignedColor, passCode };
 }
 
+export async function createSynthesisStation({ teamId, teamName, sessionId }) {
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  if (!isFirebaseEnabled || !db) {
+    return { stationCode: code };
+  }
+
+  const stationRef = doc(db, 'synthesisSessions', code);
+  await setDoc(stationRef, {
+    code,
+    status: 'waiting',
+    createdAt: serverTimestamp(),
+    teams: {
+      [teamId]: {
+        teamId,
+        teamName: teamName || '',
+        sessionId: sessionId || '',
+        placedIngredients: [],
+        ready: false
+      }
+    }
+  });
+
+  return { stationCode: code };
+}
+
+export async function joinSynthesisStation({ stationCode, teamId, teamName, sessionId }) {
+  if (!isFirebaseEnabled || !db) {
+    return { success: true };
+  }
+
+  const stationRef = doc(db, 'synthesisSessions', stationCode);
+  const snap = await getDoc(stationRef);
+
+  if (!snap.exists()) {
+    throw new Error('Station not found');
+  }
+
+  const stationData = snap.data() || {};
+  if (stationData.teams?.[teamId]) {
+    return { success: true };
+  }
+
+  await updateDoc(stationRef, {
+    [`teams.${teamId}`]: {
+      teamId,
+      teamName: teamName || '',
+      sessionId: sessionId || '',
+      placedIngredients: [],
+      ready: false
+    },
+    status: 'active',
+    updatedAt: serverTimestamp()
+  });
+
+  return { success: true };
+}
+
+export async function updateSynthesisPlaced({ stationCode, teamId, placedIngredients }) {
+  if (!isFirebaseEnabled || !db) return;
+
+  const stationRef = doc(db, 'synthesisSessions', stationCode);
+  await updateDoc(stationRef, {
+    [`teams.${teamId}.placedIngredients`]: placedIngredients,
+    updatedAt: serverTimestamp()
+  });
+}
+
+export async function setSynthesisReady({ stationCode, teamId, ready }) {
+  if (!isFirebaseEnabled || !db) return;
+
+  const stationRef = doc(db, 'synthesisSessions', stationCode);
+  await updateDoc(stationRef, {
+    [`teams.${teamId}.ready`]: ready,
+    updatedAt: serverTimestamp()
+  });
+}
+
+export function subscribeSynthesisStation({ stationCode, onChange, onError }) {
+  if (!stationCode || typeof onChange !== 'function') return () => {};
+
+  if (!isFirebaseEnabled || !db) {
+    onChange(null);
+    return () => {};
+  }
+
+  const stationRef = doc(db, 'synthesisSessions', stationCode);
+  const unsubscribe = onSnapshot(
+    stationRef,
+    (snap) => {
+      onChange(snap.exists() ? snap.data() : null);
+    },
+    (error) => {
+      if (typeof onError === 'function') onError(error);
+    }
+  );
+
+  return unsubscribe;
+}
+
 export async function getValidPartnerPasscodes({ teamId, partnerColor }) {
   if (!isFirebaseEnabled || !db) return ['888']; // Demo fallback
   
@@ -487,12 +591,11 @@ export async function getValidPartnerPasscodes({ teamId, partnerColor }) {
     if (teamDoc.id === teamId) continue;
     const teamData = teamDoc.data() || {};
     const candidateSessionId = teamData.activeSessionId;
-    if (candidateSessionId) {
-      const progress = await getSessionProgress({ teamId: teamDoc.id, sessionId: candidateSessionId }).catch(() => ({}));
-      if (progress?.level6?.status === 'completed' && progress?.level6?.antennaColor === partnerColor) {
-        if (progress.level6.passCode) {
-          validPasscodes.push(progress.level6.passCode);
-        }
+    if (!candidateSessionId || !isSessionActive(teamData)) continue;
+    const progress = await getSessionProgress({ teamId: teamDoc.id, sessionId: candidateSessionId }).catch(() => ({}));
+    if (progress?.level6?.status === 'completed' && progress?.level6?.antennaColor === partnerColor) {
+      if (progress.level6.passCode) {
+        validPasscodes.push(progress.level6.passCode);
       }
     }
   }

@@ -1,10 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import DragDropContainer from '../components/DragDropContainer';
 import Modal from '../components/Modal';
 import { ingredientImages, uiImages } from '../assets';
 import { useAppSession } from '../contexts/AppSessionContext';
-import { getSynthesisSupportPlan } from '../services/progressService';
+import {
+  getSynthesisSupportPlan,
+  createSynthesisStation,
+  joinSynthesisStation,
+  updateSynthesisPlaced,
+  setSynthesisReady,
+  subscribeSynthesisStation
+} from '../services/progressService';
 import { useTranslation, Trans } from 'react-i18next';
 
 const INGREDIENT_META = [
@@ -28,9 +34,11 @@ function formatTeamName(candidate, index = 0, t) {
 
 export default function SynthesisRoom() {
   const navigate = useNavigate();
-  const [showEnding, setShowEnding] = useState(false);
-  const { teamId, activeChallenge } = useAppSession();
-  const [loading, setLoading] = useState(true);
+  const { teamId, teamName, activeChallenge } = useAppSession();
+  const { t } = useTranslation();
+
+  // Support plan
+  const [planLoading, setPlanLoading] = useState(true);
   const [supportPlan, setSupportPlan] = useState({
     myIngredients: [],
     missingIngredients: [],
@@ -39,152 +47,437 @@ export default function SynthesisRoom() {
     globalMissingIngredients: []
   });
   const [refreshToken, setRefreshToken] = useState(0);
-  const { t } = useTranslation();
 
+  // Station phase: 'setup' | 'station' | 'ending'
+  const [phase, setPhase] = useState('setup');
+  const [stationCode, setStationCode] = useState(null);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [station, setStation] = useState(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState(null);
+  const [isReadying, setIsReadying] = useState(false);
+  const [showEnding, setShowEnding] = useState(false);
+
+  // My placed ingredients (optimistic local state, synced from Firebase on load)
+  const [myPlaced, setMyPlaced] = useState([]);
+  const [placedInitialized, setPlacedInitialized] = useState(false);
+
+  // Load support plan
   useEffect(() => {
     let alive = true;
     if (!teamId || !activeChallenge?.id) {
       setSupportPlan({
         myIngredients: [],
-        missingIngredients: INGREDIENT_META.map((item) => item.id),
+        missingIngredients: INGREDIENT_META.map((i) => i.id),
         complementaryTeams: [],
         rescueTeam: null,
         globalMissingIngredients: []
       });
-      setLoading(false);
-      return () => {
-        alive = false;
-      };
+      setPlanLoading(false);
+      return () => { alive = false; };
     }
-
-    setLoading(true);
-    getSynthesisSupportPlan({
-      teamId,
-      sessionId: activeChallenge.id
-    }).then((plan) => {
-      if (!alive) return;
-      setSupportPlan(plan);
-      setLoading(false);
-    }).catch(() => {
-      if (!alive) return;
-      setSupportPlan({
-        myIngredients: [],
-        missingIngredients: INGREDIENT_META.map((item) => item.id),
-        complementaryTeams: [],
-        rescueTeam: null,
-        globalMissingIngredients: []
-      });
-      setLoading(false);
-    });
-
-    return () => {
-      alive = false;
-    };
+    setPlanLoading(true);
+    getSynthesisSupportPlan({ teamId, sessionId: activeChallenge.id })
+      .then((plan) => { if (alive) { setSupportPlan(plan); setPlanLoading(false); } })
+      .catch(() => { if (alive) setPlanLoading(false); });
+    return () => { alive = false; };
   }, [teamId, activeChallenge?.id, refreshToken]);
 
-  const collectedItems = useMemo(
-    () => INGREDIENT_META.filter((item) => supportPlan.myIngredients.includes(item.id)).map(item => ({ ...item, label: t(item.labelKey) })),
-    [supportPlan.myIngredients, t]
-  );
+  // Subscribe to station changes
+  useEffect(() => {
+    if (!stationCode) return;
+    const unsub = subscribeSynthesisStation({
+      stationCode,
+      onChange: (data) => setStation(data)
+    });
+    return unsub;
+  }, [stationCode]);
+
+  // Initialize myPlaced from Firebase once when station first loads
+  useEffect(() => {
+    if (!station || !teamId || placedInitialized) return;
+    const myData = station.teams?.[teamId];
+    if (myData) {
+      setMyPlaced(myData.placedIngredients || []);
+      setPlacedInitialized(true);
+    }
+  }, [station, teamId, placedInitialized]);
+
+  // Reset placed state when station code changes
+  useEffect(() => {
+    setMyPlaced([]);
+    setPlacedInitialized(false);
+  }, [stationCode]);
+
+  // Watch for both teams ready → trigger ending
+  useEffect(() => {
+    if (!station || phase !== 'station') return;
+    const teams = Object.values(station.teams || {});
+    if (teams.length < 2) return;
+
+    const allPlacedIds = new Set(teams.flatMap((tm) => tm.placedIngredients || []));
+    if (allPlacedIds.size < 5) return;
+
+    if (teams.every((tm) => tm.ready)) {
+      setPhase('ending');
+      setTimeout(() => setShowEnding(true), 400);
+    }
+  }, [station, phase]);
+
+  // Derived values
+  const myIngredients = supportPlan.myIngredients;
+  const myUnplaced = myIngredients.filter((id) => !myPlaced.includes(id));
+
+  // placementMap: ingredientId → teamId (who placed it)
+  const placementMap = useMemo(() => {
+    const map = {};
+    if (!station) return map;
+    // My placements take priority
+    const myTeamData = station.teams?.[teamId];
+    (myTeamData?.placedIngredients || []).forEach((id) => { map[id] = teamId; });
+    // Then allies
+    Object.values(station.teams || {}).forEach((tm) => {
+      if (tm.teamId === teamId) return;
+      (tm.placedIngredients || []).forEach((id) => { if (!map[id]) map[id] = tm.teamId; });
+    });
+    return map;
+  }, [station, teamId]);
+
+  const allPlacedCount = Object.keys(placementMap).length;
+  const canSynthesize = allPlacedCount === 5;
+  const myTeamData = station?.teams?.[teamId];
+  const isReady = myTeamData?.ready || false;
+  const otherTeams = station ? Object.values(station.teams || {}).filter((tm) => tm.teamId !== teamId) : [];
+  const teamCount = station ? Object.keys(station.teams || {}).length : 0;
+
   const missingNames = supportPlan.missingIngredients.map((id) => t(INGREDIENT_NAME_MAP[id]) || id);
-  const globalMissingNames = supportPlan.globalMissingIngredients.map((id) => t(INGREDIENT_NAME_MAP[id]) || id);
   const suggestedAlly = supportPlan.complementaryTeams[0] || null;
-  const canSynthesize = supportPlan.missingIngredients.length === 0;
 
-  const handleSynthesis = (slots) => {
-    if (!canSynthesize) return;
+  const handleCreateStation = async () => {
+    if (!teamId) return;
+    setIsCreating(true);
+    try {
+      const { stationCode: code } = await createSynthesisStation({
+        teamId,
+        teamName: teamName || '',
+        sessionId: activeChallenge?.id || ''
+      });
+      setStationCode(code);
+      setPhase('station');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
-    const filledCount = slots.filter((s) => s !== null).length;
-    if (filledCount === 5) {
-      setTimeout(() => setShowEnding(true), 1500);
+  const handleJoinStation = async () => {
+    const code = joinCodeInput.trim();
+    if (!teamId || !code) return;
+    setIsJoining(true);
+    setJoinError(null);
+    try {
+      await joinSynthesisStation({
+        stationCode: code,
+        teamId,
+        teamName: teamName || '',
+        sessionId: activeChallenge?.id || ''
+      });
+      setStationCode(code);
+      setPhase('station');
+    } catch {
+      setJoinError(t('synthesis.joinError'));
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handlePlaceIngredient = useCallback(async (ingredientId) => {
+    if (!stationCode || !teamId) return;
+    if (!myIngredients.includes(ingredientId) || myPlaced.includes(ingredientId)) return;
+    const newPlaced = [...myPlaced, ingredientId];
+    setMyPlaced(newPlaced);
+    await updateSynthesisPlaced({ stationCode, teamId, placedIngredients: newPlaced }).catch(console.error);
+  }, [stationCode, teamId, myIngredients, myPlaced]);
+
+  const handleRemoveIngredient = useCallback(async (ingredientId) => {
+    if (!stationCode || !teamId) return;
+    const newPlaced = myPlaced.filter((id) => id !== ingredientId);
+    setMyPlaced(newPlaced);
+    await updateSynthesisPlaced({ stationCode, teamId, placedIngredients: newPlaced }).catch(console.error);
+  }, [stationCode, teamId, myPlaced]);
+
+  const handleToggleReady = async () => {
+    if (!stationCode || !teamId || !canSynthesize) return;
+    setIsReadying(true);
+    try {
+      await setSynthesisReady({ stationCode, teamId, ready: !isReady });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsReadying(false);
     }
   };
 
   return (
     <div className="w-full min-h-screen flex flex-col bg-[#0D0F1A] pb-8 relative overflow-hidden">
-      
-      {/* Mystical Background Effect */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#7C5CFC]/20 via-[#1A1D2E] to-[#0D0F1A] z-0 pointer-events-none border-t-4 border-[#7C5CFC]"></div>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] aspect-square bg-[#7C5CFC]/10 rounded-full blur-[100px] pointer-events-none animate-pulse" style={{ animationDuration: '4s' }}></div>
+
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#7C5CFC]/20 via-[#1A1D2E] to-[#0D0F1A] z-0 pointer-events-none border-t-4 border-[#7C5CFC]" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] aspect-square bg-[#7C5CFC]/10 rounded-full blur-[100px] pointer-events-none animate-pulse" style={{ animationDuration: '4s' }} />
 
       <div className="relative z-10 w-full pt-12 pb-6 px-4 flex flex-col items-center">
-         <h1 className="text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-[#4ADE80] to-[#38BDF8] drop-shadow-md">
-           {t('synthesis.title')}
-         </h1>
-         <p className="text-gray-400 text-sm text-center mb-4">{t('synthesis.subtitle')}</p>
-         <button
-           type="button"
-           className="text-xs rounded-lg bg-[#7C5CFC]/20 border border-[#7C5CFC]/40 px-3 py-1.5 text-[#E9D5FF]"
-           onClick={() => setRefreshToken((value) => value + 1)}
-         >
-           {t('synthesis.recheckBtn')}
-         </button>
+        <h1 className="text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-[#4ADE80] to-[#38BDF8] drop-shadow-md">
+          {t('synthesis.title')}
+        </h1>
+        <p className="text-gray-400 text-sm text-center mb-4">
+          {phase === 'setup' ? t('synthesis.subtitleSetup') : t('synthesis.subtitleStation')}
+        </p>
       </div>
 
-      <div className="flex-1 w-full max-w-sm mx-auto px-4 flex flex-col relative z-10">
-        {loading ? (
-          <div className="mb-4 rounded-2xl border border-white/10 bg-[#151A30]/80 px-4 py-3 text-sm text-gray-300">
-            {t('synthesis.loading')}
-          </div>
-        ) : null}
+      <div className="flex-1 w-full max-w-sm mx-auto px-4 flex flex-col relative z-10 gap-4">
 
-        {!loading && !canSynthesize ? (
-          <div className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-100">
-            {t('synthesis.missingInfo', { count: collectedItems.length, missing: missingNames.join(', ') })}
-          </div>
-        ) : null}
+        {/* ── SETUP PHASE ── */}
+        {phase === 'setup' && (
+          <>
+            {!planLoading && supportPlan.missingIngredients.length > 0 && (
+              <div className="rounded-2xl border border-amber-400/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-100">
+                {t('synthesis.missingInfo', { count: supportPlan.myIngredients.length, missing: missingNames.join(', ') })}
+              </div>
+            )}
 
-        {!loading && !canSynthesize && suggestedAlly ? (
-          <div className="mb-4 rounded-2xl border border-[#4ADE80]/40 bg-[#14532d]/25 px-4 py-3 text-sm text-green-100">
-            <Trans
-              i18nKey="synthesis.allyFound"
-              values={{
-                team: formatTeamName(suggestedAlly, 0, t),
-                ingredients: suggestedAlly.provides.map((id) => t(INGREDIENT_NAME_MAP[id]) || id).join(', ')
-              }}
-              components={{ 1: <span className="font-bold" /> }}
-            />
-          </div>
-        ) : null}
+            {!planLoading && suggestedAlly && (
+              <div className="rounded-2xl border border-[#4ADE80]/40 bg-[#14532d]/25 px-4 py-3 text-sm text-green-100">
+                <Trans
+                  i18nKey="synthesis.allyFound"
+                  values={{
+                    team: formatTeamName(suggestedAlly, 0, t),
+                    ingredients: suggestedAlly.provides.map((id) => t(INGREDIENT_NAME_MAP[id]) || id).join(', ')
+                  }}
+                  components={{ 1: <span className="font-bold" /> }}
+                />
+              </div>
+            )}
 
-        {!loading && !canSynthesize && !suggestedAlly && supportPlan.rescueTeam ? (
-          <div className="mb-4 rounded-2xl border border-pink-400/50 bg-pink-900/25 px-4 py-3 text-sm text-pink-100">
-            <Trans
-              i18nKey="synthesis.rescueInitiated"
-              values={{ team: formatTeamName(supportPlan.rescueTeam, 0, t) }}
-              components={{ 1: <span className="font-bold" /> }}
-            />
-          </div>
-        ) : null}
+            {!planLoading && !suggestedAlly && supportPlan.rescueTeam && (
+              <div className="rounded-2xl border border-pink-400/50 bg-pink-900/25 px-4 py-3 text-sm text-pink-100">
+                <Trans
+                  i18nKey="synthesis.rescueInitiated"
+                  values={{ team: formatTeamName(supportPlan.rescueTeam, 0, t) }}
+                  components={{ 1: <span className="font-bold" /> }}
+                />
+              </div>
+            )}
 
-        {!loading && !canSynthesize && globalMissingNames.length > 0 ? (
-          <div className="mb-4 rounded-2xl border border-sky-400/50 bg-sky-900/20 px-4 py-3 text-sm text-sky-100">
-            {t('synthesis.globalMissing', { missing: globalMissingNames.join(', ') })}
-          </div>
-        ) : null}
+            <div className="bg-[#1A1D2E]/50 backdrop-blur-md rounded-[2rem] border border-[#7C5CFC]/30 p-6 flex flex-col gap-4">
+              <p className="text-center text-gray-300 text-sm">{t('synthesis.setupHint')}</p>
 
-        {/* The Pizza Pan Area */}
-        <div className="bg-[#1A1D2E]/50 backdrop-blur-md rounded-[3rem] border border-[#7C5CFC]/30 p-6 shadow-[0_0_50px_rgba(124,92,252,0.15)] flex flex-col items-center">
-          
-          <div className="w-48 h-48 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full border-8 border-gray-700 shadow-inner flex flex-col items-center justify-center mb-8 relative">
-             <img src={uiImages.synthesizer} alt={t('synthesis.panTitle')} className="w-24 h-24 opacity-30 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-contain" />
-             <p className="text-gray-500 font-bold z-10 text-sm">{t('synthesis.panTitle')}</p>
-          </div>
+              <button
+                type="button"
+                disabled={isCreating}
+                onClick={handleCreateStation}
+                className="w-full py-4 rounded-xl font-bold text-white bg-gradient-to-r from-[#7C5CFC] to-[#5B21B6] border-b-4 border-[#4C1D95] active:border-b-0 active:translate-y-1 shadow-lg disabled:opacity-50"
+              >
+                {isCreating ? t('synthesis.creating') : t('synthesis.createBtn')}
+              </button>
 
-          <div className="w-full">
-            <DragDropContainer 
-              items={collectedItems}
-              slotsCount={5}
-              onComplete={handleSynthesis}
-            />
-          </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-gray-500 text-xs">{t('synthesis.or')}</span>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
 
-        </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={joinCodeInput}
+                  onChange={(e) => setJoinCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleJoinStation(); }}
+                  placeholder={t('synthesis.joinPlaceholder')}
+                  className="flex-1 rounded-xl bg-white/5 border border-white/20 px-3 py-3 text-white text-center text-xl font-mono tracking-widest placeholder-gray-600 focus:outline-none focus:border-[#7C5CFC]/60"
+                />
+                <button
+                  type="button"
+                  disabled={isJoining || !joinCodeInput.trim()}
+                  onClick={handleJoinStation}
+                  className="px-4 py-3 rounded-xl font-bold text-white bg-[#1A1D2E] border border-[#7C5CFC]/40 active:scale-95 disabled:opacity-50"
+                >
+                  {isJoining ? '...' : t('synthesis.joinBtn')}
+                </button>
+              </div>
 
+              {joinError && (
+                <p className="text-red-400 text-sm text-center">{joinError}</p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="text-xs rounded-lg bg-[#7C5CFC]/20 border border-[#7C5CFC]/40 px-3 py-1.5 text-[#E9D5FF] self-center"
+              onClick={() => setRefreshToken((v) => v + 1)}
+            >
+              {t('synthesis.recheckBtn')}
+            </button>
+          </>
+        )}
+
+        {/* ── STATION PHASE ── */}
+        {phase === 'station' && (
+          <>
+            {/* Station code + connection status */}
+            <div className="bg-[#1A1D2E]/80 rounded-2xl border border-[#7C5CFC]/30 px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-400">{t('synthesis.stationCodeLabel')}</p>
+                <p className="text-2xl font-mono font-bold text-[#7C5CFC] tracking-widest">{stationCode}</p>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(stationCode || '')}
+                  className="text-xs bg-[#7C5CFC]/20 border border-[#7C5CFC]/40 rounded-lg px-2 py-1 text-[#E9D5FF]"
+                >
+                  {t('synthesis.copyBtn')}
+                </button>
+                <p className="text-xs text-gray-500">
+                  {teamCount >= 2
+                    ? t('synthesis.teamConnected', { count: teamCount })
+                    : t('synthesis.waitingAlly')}
+                </p>
+              </div>
+            </div>
+
+            {/* 5 ingredient slots */}
+            <div className="bg-[#1A1D2E]/50 backdrop-blur-md rounded-[2rem] border border-[#7C5CFC]/30 p-5 flex flex-col gap-4">
+              <p className="text-center text-sm text-gray-400">{t('synthesis.slotsTitle')}</p>
+
+              <div className="flex justify-center gap-2">
+                {INGREDIENT_META.map((meta) => {
+                  const placedByTeam = placementMap[meta.id];
+                  const isMine = myIngredients.includes(meta.id);
+                  const isMyPlaced = placedByTeam === teamId;
+                  const isAllyPlaced = placedByTeam && placedByTeam !== teamId;
+                  const isEmpty = !placedByTeam;
+
+                  return (
+                    <div key={meta.id} className="flex flex-col items-center gap-1">
+                      <div
+                        onClick={() => {
+                          if (isMyPlaced) handleRemoveIngredient(meta.id);
+                          else if (isEmpty && isMine) handlePlaceIngredient(meta.id);
+                        }}
+                        className={[
+                          'relative flex items-center justify-center w-14 h-14 rounded-xl border-2 transition-all duration-200',
+                          placedByTeam ? 'border-transparent' : 'border-dashed border-gray-600 bg-gray-800/30',
+                          isMyPlaced ? 'cursor-pointer active:scale-95 ring-2 ring-[#7C5CFC]/50' : '',
+                          isEmpty && isMine ? 'cursor-pointer hover:border-[#7C5CFC]/60 hover:bg-[#7C5CFC]/10' : ''
+                        ].join(' ')}
+                        style={{ backgroundColor: placedByTeam ? `${meta.color}40` : '' }}
+                      >
+                        {placedByTeam ? (
+                          <>
+                            <img src={meta.imageSrc} alt={t(meta.labelKey)} className="w-10 h-10 object-contain" />
+                            {isAllyPlaced && (
+                              <span className="absolute -top-2 -right-2 text-[9px] bg-[#4ADE80] text-black font-bold rounded-full px-1 leading-4">
+                                {t('synthesis.allyBadge')}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-gray-600 text-xl">?</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-gray-500 text-center leading-tight w-14">
+                        {t(meta.labelKey)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-center text-xs text-gray-500">
+                {allPlacedCount}/5 {t('synthesis.ingredientsPlaced')}
+              </p>
+            </div>
+
+            {/* My ingredient pool */}
+            {myUnplaced.length > 0 && (
+              <div className="bg-[#1A1D2E]/50 rounded-2xl border border-white/10 p-4">
+                <p className="text-xs text-gray-400 mb-3 text-center">{t('synthesis.myPool')}</p>
+                <div className="flex justify-center gap-3 flex-wrap">
+                  {myUnplaced.map((id) => {
+                    const meta = INGREDIENT_META.find((m) => m.id === id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => handlePlaceIngredient(id)}
+                        className="w-16 h-16 rounded-xl border border-white/20 flex items-center justify-center active:scale-95 transition-transform"
+                        style={{ backgroundColor: `${meta?.color}33` }}
+                      >
+                        <img src={meta?.imageSrc} alt={t(meta?.labelKey || '')} className="w-12 h-12 object-contain" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Team ready status */}
+            <div className="bg-[#1A1D2E]/50 rounded-2xl border border-white/10 px-4 py-3">
+              <div className="flex justify-around">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-xs text-gray-400">{t('synthesis.myTeam')}</span>
+                  <span className={`text-sm font-bold ${isReady ? 'text-[#4ADE80]' : 'text-gray-500'}`}>
+                    {isReady ? `✓ ${t('synthesis.ready')}` : t('synthesis.notReady')}
+                  </span>
+                </div>
+                {otherTeams.length > 0 ? otherTeams.map((tm, i) => (
+                  <div key={tm.teamId} className="flex flex-col items-center gap-1">
+                    <span className="text-xs text-gray-400 text-center max-w-[80px] truncate">
+                      {tm.teamName || formatTeamName(tm, i, t)}
+                    </span>
+                    <span className={`text-sm font-bold ${tm.ready ? 'text-[#4ADE80]' : 'text-gray-500'}`}>
+                      {tm.ready ? `✓ ${t('synthesis.ready')}` : t('synthesis.notReady')}
+                    </span>
+                  </div>
+                )) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs text-gray-400">{t('synthesis.ally')}</span>
+                    <span className="text-sm text-gray-600">{t('synthesis.waitingAlly')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Synthesize / ready button */}
+            {canSynthesize ? (
+              <button
+                type="button"
+                disabled={isReadying}
+                onClick={handleToggleReady}
+                className={[
+                  'w-full py-5 rounded-2xl font-bold text-xl transition-all duration-200 shadow-xl disabled:opacity-50',
+                  isReady
+                    ? 'bg-gradient-to-r from-[#4ADE80] to-[#16a34a] border-b-4 border-[#14532d] text-white'
+                    : 'bg-gradient-to-r from-[#7C5CFC] to-[#5B21B6] border-b-4 border-[#4C1D95] text-white active:border-b-0 active:translate-y-1'
+                ].join(' ')}
+              >
+                {isReady ? t('synthesis.readyPressed') : t('synthesis.synthesizeBtn')}
+              </button>
+            ) : (
+              <p className="text-center text-gray-600 text-sm py-2">
+                {t('synthesis.notEnoughIngredients')}
+              </p>
+            )}
+          </>
+        )}
       </div>
 
-      <Modal 
-        isOpen={showEnding} 
+      {/* Completion modal */}
+      <Modal
+        isOpen={showEnding}
         onClose={() => navigate('/victory')}
         title={t('synthesis.completeTitle')}
         type="info"
@@ -198,16 +491,14 @@ export default function SynthesisRoom() {
           </div>
           <p className="text-xl text-white font-bold mb-2 tracking-widest text-[#FBBF24]">{t('synthesis.pizzaName')}</p>
           <p className="text-sm text-gray-300 mb-8">{t('synthesis.completeDesc')}</p>
-          
-          <button 
-             onClick={() => navigate('/victory')}
-             className="w-full px-6 py-4 rounded-xl font-bold text-white bg-gradient-to-r from-[#4ADE80] to-[#16a34a] border-b-4 border-[#14532d] active:border-b-0 active:translate-y-1 shadow-lg"
+          <button
+            onClick={() => navigate('/victory')}
+            className="w-full px-6 py-4 rounded-xl font-bold text-white bg-gradient-to-r from-[#4ADE80] to-[#16a34a] border-b-4 border-[#14532d] active:border-b-0 active:translate-y-1 shadow-lg"
           >
-             {t('synthesis.nextStageBtn')}
+            {t('synthesis.nextStageBtn')}
           </button>
         </div>
       </Modal>
-
     </div>
   );
 }
