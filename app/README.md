@@ -37,6 +37,7 @@ npm run dev
 - `VITE_FIREBASE_STORAGE_BUCKET`
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
+- `VITE_ADMIN_EMAIL`：管理員 Google 帳號（可設定多個管理員，詳見下方說明）
 
 若未完整設定，系統會進入本機 fallback 模式（不連 Firebase）。
 
@@ -48,6 +49,8 @@ npm run dev
 - 掃碼紀錄：`teams/{teamId}/scanAccess/{routeKey}`
 - 冷卻資料：`teams/{teamId}/cooldowns/{levelId}`
 - 上傳紀錄：`teams/{teamId}/uploads/{uploadId}`
+- 合成協作：`synthesisSessions/{stationCode}`（跨隊共用）
+- 管理員清單：`admins/{email}`（存在即視為管理員）
 
 ## 測試流程建議
 
@@ -59,27 +62,68 @@ npm run dev
 
 QR code 對照請見：`../docs/QR_Code_文字清單.md`
 
-## 測試清除教學（隱藏維護入口）
+## 後臺管理系統
 
-此專案提供一個**隱藏重置頁**，可在測試後快速清除帳號與紀錄。
+本專案提供一個管理後臺，可即時監控所有小隊狀態並執行隊伍刪除。
 
-### 使用方式
+### 進入方式
 
-1. 直接進入路由：`/_sync/health-check-9a7f`
-2. 輸入維護碼：`RESET-ITALIA-2026`
-3. 輸入目前小隊名稱
-4. 長按按鈕約 2.8 秒，執行清除
+1. 開啟路由：`/admin`
+2. 點擊「使用 Google 帳號登入」，以**管理員 Google 帳號**授權
+3. 驗證通過後自動跳轉至 `/admin/dashboard`
 
-### 會清掉哪些資料
+### 管理員權限設定
+
+系統支援兩種管理員認證方式（任一符合即可）：
+
+**方式一：環境變數（單一帳號）**
+
+在 `.env` 設定：
+
+```
+VITE_ADMIN_EMAIL=your-admin@gmail.com
+```
+
+**方式二：Firestore 清單（多帳號）**
+
+在 Firebase Firestore 建立 `admins` 集合，以 email 為文件 ID，文件內容可為空物件：
+
+```
+admins/
+  your-admin@gmail.com     ← 文件存在即代表是管理員
+  another-admin@gmail.com
+```
+
+### 後臺功能
+
+**儀表板總覽**
+
+- 顯示所有隊伍數量、進行中場次數、已結束場次數
+- 即時更新（Firestore 即時監聽）
+- 可依隊伍名稱或 ID 搜尋
+
+**隊伍詳情（點擊任一隊伍卡片）**
+
+| 分頁 | 內容 |
+|------|------|
+| 進度 | 挑戰開始／結束時間、剩餘時間、各關卡完成狀態、已收集食材、天線顏色與通關碼 |
+| 記錄 | 歷次挑戰場次清單與各場次關卡完成情形 |
+| 圖片 | 該隊伍上傳的所有照片（可點擊開啟原圖） |
+
+**刪除隊伍**
+
+在隊伍詳情底部點擊「刪除此隊伍」，二次確認後執行。會一併刪除：
 
 - Firestore `teams/{teamId}` 主文件
 - `progress`、`uploads`、`scanAccess`、`cooldowns`
-- `challengeSessions` 與其 `progress`/`cooldowns` 子集合
-- 本機 `localStorage` / `sessionStorage` 相關快取
-- 目前匿名使用者（可刪除時會刪除，否則登出）
+- `challengeSessions` 與其下 `progress`/`cooldowns` 子集合
 
-### 安全建議（正式活動前請做）
+### 登出
 
-- 到 `src/pages/HiddenResetPage.jsx` 變更 `SECRET_PASSPHRASE`
-- 到 `src/App.jsx` 變更隱藏路由字串
-- 不要在對外文件或投影畫面展示此入口資訊
+點擊右上角「登出」按鈕，清除 Google 登入狀態並返回 `/admin` 登入頁。
+
+### 安全建議（正式活動前請確認）
+
+- 確認 `VITE_ADMIN_EMAIL` 已設定正確帳號，或在 Firestore `admins` 集合中已建立對應文件
+- 未通過驗證的 Google 帳號會被立即登出，不會進入後臺
+- 不要在對外展示畫面或投影片上直接顯示 `/admin` 路徑資訊
