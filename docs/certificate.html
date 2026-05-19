@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🍕 義次元英雄獎狀 — 義次元腦洞大開</title>
+  <style>
+    /* ── Fonts ──────────────────────────────────────────────── */
+    @font-face {
+      font-family: 'JasonHandwriting2';
+      src: url('../assets/font/JasonHandwriting2-Regular.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    /* ── Print reset ────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+
+    html, body {
+      width: 297mm;
+      height: 210mm;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      font-family: 'JasonHandwriting2', 'Noto Sans TC', cursive, sans-serif;
+    }
+
+    /* ── Page canvas ─────────────────────────────────────────── */
+    .page {
+      position: relative;
+      width: 297mm;
+      height: 210mm;
+      background: #0D0F1A;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    /* ── Background glow blobs ──────────────────────────────── */
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.30;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-purple {
+      width: 380px; height: 380px;
+      background: radial-gradient(circle, #7C5CFC, transparent 70%);
+      top: -100px; left: -80px;
+    }
+    .blob-pink {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, #F472B6, transparent 70%);
+      bottom: 0px; right: -20px;
+    }
+    .blob-blue {
+      width: 250px; height: 250px;
+      background: radial-gradient(circle, #38BDF8, transparent 70%);
+      bottom: 20px; left: 25%;
+    }
+    .blob-yellow {
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, #FBBF24, transparent 70%);
+      top: -30px; right: 22%;
+    }
+
+    /* ── Character movie-poster strip (bottom) ──────────────── */
+    .char-strip {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 65mm;   /* bottom ~31% of 210mm page */
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* shared image base */
+    .char-strip img {
+      position: absolute;
+      bottom: 0;
+      object-fit: contain;
+      object-position: bottom center;
+      image-rendering: -webkit-optimize-contrast;
+    }
+
+    /* Gradient overlay — fades top of characters into background */
+    .char-strip::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to bottom,  #0D0F1A 0%, transparent 50%),
+        linear-gradient(to right,   #0D0F1A 0%, transparent 7%),
+        linear-gradient(to left,    #0D0F1A 0%, transparent 7%);
+      z-index: 10;
+    }
+
+    /*
+     * 7 characters evenly spread across 297mm.
+     * Each occupies ~42mm slot; we place by left% so images fan out.
+     * Heights: edges shorter → center tallest for cinematic depth.
+     */
+    .c-brr {
+      left: -1%;          /* slot 1 — bleed slightly left */
+      height: 48mm;
+      filter: drop-shadow(-4px 0 20px rgba(74,222,128,0.3)) brightness(0.82) saturate(0.88);
+      z-index: 2;
+    }
+    .c-bombardilo {
+      left: 12%;          /* slot 2 ~ 36mm */
+      height: 52mm;
+      filter: drop-shadow(-3px 0 18px rgba(56,189,248,0.28)) brightness(0.86) saturate(0.9);
+      z-index: 3;
+    }
+    .c-cappuccino {
+      left: 26%;          /* slot 3 ~ 77mm */
+      height: 57mm;
+      filter: drop-shadow(0 0 22px rgba(124,92,252,0.32)) brightness(0.9) saturate(0.95);
+      z-index: 4;
+    }
+    .c-lirili {
+      left: 50%;          /* CENTER — tallest */
+      transform: translateX(-50%);
+      height: 62mm;
+      filter: drop-shadow(0 0 28px rgba(251,191,36,0.45)) brightness(1.0) saturate(1.05);
+      z-index: 6;
+    }
+    .c-tung {
+      right: 24%;         /* slot 5 ~ 71mm from right */
+      height: 57mm;
+      filter: drop-shadow(3px 0 22px rgba(124,92,252,0.32)) brightness(0.9) saturate(0.9);
+      z-index: 4;
+    }
+    .c-ballerina {
+      right: 10%;         /* slot 6 ~ 30mm from right */
+      height: 52mm;
+      filter: drop-shadow(3px 0 18px rgba(244,114,182,0.3)) brightness(0.85) saturate(0.9);
+      z-index: 3;
+    }
+    .c-tralalero {
+      right: -1%;         /* slot 7 — bleed slightly right */
+      height: 48mm;
+      filter: drop-shadow(4px 0 20px rgba(56,189,248,0.28)) brightness(0.80) saturate(0.88);
+      z-index: 2;
+    }
+
+    /* ── Border frames ──────────────────────────────────────── */
+    .outer-frame {
+      position: absolute;
+      inset: 10mm;
+      border: 3px solid rgba(124, 92, 252, 0.5);
+      border-radius: 18px;
+      z-index: 8;
+      pointer-events: none;
+    }
+    .inner-frame {
+      position: absolute;
+      inset: 13mm;
+      border: 1.5px solid rgba(124, 92, 252, 0.22);
+      border-radius: 14px;
+      z-index: 8;
+      pointer-events: none;
+    }
+
+    /* corner ornaments */
+    .corner {
+      position: absolute;
+      width: 36px; height: 36px;
+      z-index: 9;
+      pointer-events: none;
+    }
+    .corner svg { width: 100%; height: 100%; }
+    .corner.tl { top: 7mm;  left: 7mm; }
+    .corner.tr { top: 7mm;  right: 7mm; transform: scaleX(-1); }
+    .corner.bl { bottom: 7mm; left: 7mm;  transform: scaleY(-1); }
+    .corner.br { bottom: 7mm; right: 7mm; transform: scale(-1,-1); }
+
+    /* ── Decorative divider ─────────────────────────────────── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 68%;
+    }
+    .divider-line {
+      flex: 1;
+      height: 1.5px;
+      background: linear-gradient(to right, transparent, rgba(124,92,252,0.8), transparent);
+    }
+    .divider-icon { font-size: 15px; }
+
+    /* ── Main content ───────────────────────────────────────── */
+    .content {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;            /* tighter vertical rhythm */
+      width: 100%;
+      padding: 11mm 22mm 0; /* less top padding, narrower horizontal */
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 18px;
+      background: linear-gradient(135deg, rgba(124,92,252,0.28), rgba(244,114,182,0.18));
+      border: 1px solid rgba(124,92,252,0.55);
+      border-radius: 999px;
+      font-size: 11.5px;
+      color: #C4B5FD;
+      letter-spacing: 0.15em;
+    }
+
+    .event-title {
+      font-size: 12.5px;
+      color: #9CA3AF;
+      letter-spacing: 0.1em;
+    }
+
+    .main-title {
+      font-size: 42px;
+      font-weight: 900;
+      line-height: 1.05;
+      background: linear-gradient(135deg, #FBBF24 0%, #F472B6 40%, #7C5CFC 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .en-subtitle {
+      font-size: 11.5px;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      margin-top: -2px;
+    }
+
+    /* name field */
+    .name-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      width: 55%;
+    }
+    .name-label {
+      font-size: 10.5px;
+      color: #9CA3AF;
+      letter-spacing: 0.2em;
+    }
+    .name-line {
+      width: 100%;
+      border: none;
+      border-bottom: 2px solid rgba(124,92,252,0.8);
+      background: transparent;
+      color: #FBBF24;
+      font-family: 'JasonHandwriting2', cursive, sans-serif;
+      font-size: 26px;
+      text-align: center;
+      outline: none;
+      padding: 1px 0;
+      caret-color: #7C5CFC;
+    }
+
+    .citation {
+      font-size: 12.5px;
+      line-height: 1.75;
+      color: rgba(255,255,255,0.72);
+      max-width: 460px;
+    }
+    .citation .highlight { color: #4ADE80; font-size: 13.5px; }
+
+    /* footer */
+    .footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 76%;
+      padding-top: 2px;
+    }
+    .footer-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .footer-sig-line {
+      width: 88px;
+      height: 1.5px;
+      background: rgba(255,255,255,0.28);
+    }
+    .footer-label {
+      font-size: 9.5px;
+      color: #6B7280;
+      letter-spacing: 0.08em;
+    }
+    .seal {
+      width: 58px; height: 58px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(124,92,252,0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 40% 40%, rgba(124,92,252,0.22), rgba(13,15,26,0.85));
+      box-shadow: 0 0 18px rgba(124,92,252,0.4), inset 0 0 10px rgba(124,92,252,0.12);
+    }
+    .seal-emoji { font-size: 20px; }
+    .seal-text  { font-size: 7px; color: #C4B5FD; letter-spacing: 0.05em; }
+
+    /* sparkles */
+    .sparkle {
+      position: absolute;
+      pointer-events: none;
+      z-index: 11;
+    }
+
+    /* ── Print tweaks ────────────────────────────────────────── */
+    @media print {
+      body { background: #fff; }
+      .name-line::placeholder { color: transparent; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Background blobs -->
+  <div class="blob blob-purple"></div>
+  <div class="blob blob-pink"></div>
+  <div class="blob blob-blue"></div>
+  <div class="blob blob-yellow"></div>
+
+  <!-- ── Movie-poster characters ── -->
+  <div class="char-strip">
+    <img class="c-brr"
+         src="../assets/characters/Brr_Brr_Patapim/Brr_brr_patapim.png"
+         alt="Brr Brr Patapim" />
+    <img class="c-bombardilo"
+         src="../assets/characters/Bombardilo_Crocodilo/Bombardiro_Crocodillo.png"
+         alt="Bombardilo Crocodilo" />
+    <img class="c-cappuccino"
+         src="../assets/characters/Cappuccino_Assassino/Cappucino_assasino.png"
+         alt="Cappuccino Assassino" />
+    <img class="c-lirili"
+         src="../assets/characters/Lirili_Larila/Lirili_Larila.png"
+         alt="Lirili Larila" />
+    <img class="c-tung"
+         src="../assets/characters/Tung_Tung_Tung_Sahur/Tung_tung_tung_sahur.png"
+         alt="Tung Tung Tung Sahur" />
+    <img class="c-ballerina"
+         src="../assets/characters/Ballerina_Cappuccina/Ballerina_cappucappu.png"
+         alt="Ballerina Cappuccina" />
+    <img class="c-tralalero"
+         src="../assets/characters/Tralalero_Tralala/Tralalelo_tralala.png"
+         alt="Tralalero Tralala" />
+  </div>
+
+  <!-- Border frames -->
+  <div class="outer-frame"></div>
+  <div class="inner-frame"></div>
+
+  <!-- Corner ornaments -->
+  <div class="corner tl">
+    <svg viewBox="0 0 36 36" fill="none"><path d="M2 34 L2 6 Q2 2 6 2 L34 2" stroke="#7C5CFC" stroke-width="2.5" stroke-linecap="round"/><circle cx="2" cy="2" r="2" fill="#FBBF24"/><path d="M8 2 L12 2" stroke="#F472B6" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><path d="M2 8 L2 12" stroke="#F472B6" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/></svg>
+  </div>
+  <div class="corner tr">
+    <svg viewBox="0 0 36 36" fill="none"><path d="M2 34 L2 6 Q2 2 6 2 L34 2" stroke="#7C5CFC" stroke-width="2.5" stroke-linecap="round"/><circle cx="2" cy="2" r="2" fill="#FBBF24"/><path d="M8 2 L12 2" stroke="#F472B6" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><path d="M2 8 L2 12" stroke="#F472B6" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/></svg>
+  </div>
+  <div class="corner bl">
+    <svg viewBox="0 0 36 36" fill="none"><path d="M2 34 L2 6 Q2 2 6 2 L34 2" stroke="#7C5CFC" stroke-width="2.5" stroke-linecap="round"/><circle cx="2" cy="2" r="2" fill="#FBBF24"/><path d="M8 2 L12 2" stroke="#F472B6" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><path d="M2 8 L2 12" stroke="#F472B6" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/></svg>
+  </div>
+  <div class="corner br">
+    <svg viewBox="0 0 36 36" fill="none"><path d="M2 34 L2 6 Q2 2 6 2 L34 2" stroke="#7C5CFC" stroke-width="2.5" stroke-linecap="round"/><circle cx="2" cy="2" r="2" fill="#FBBF24"/><path d="M8 2 L12 2" stroke="#F472B6" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><path d="M2 8 L2 12" stroke="#F472B6" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/></svg>
+  </div>
+
+  <!-- Sparkles -->
+  <div class="sparkle" style="top:16mm;left:52mm;width:18px;height:18px;opacity:.7">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="#FBBF24" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+  <div class="sparkle" style="top:14mm;right:55mm;width:13px;height:13px;opacity:.6">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="#F472B6" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+
+  <!-- ── Content ── -->
+  <div class="content">
+
+    <div class="badge">🏆&nbsp; HERO CERTIFICATE &nbsp;·&nbsp; 英雄認證 &nbsp;🏆</div>
+
+    <div class="event-title">義次元腦洞大開：校園瑪瑪咪呀合成大戰</div>
+
+    <div class="main-title">通關英雄獎狀</div>
+    <div class="en-subtitle">Certificate of Heroic Achievement</div>
+
+    <div class="divider">
+      <div class="divider-line"></div>
+      <div class="divider-icon">🍕</div>
+      <div class="divider-line"></div>
+    </div>
+
+    <!-- Name field -->
+    <div class="name-section">
+      <div class="name-label">英雄姓名 &nbsp;Hero Name</div>
+      <input
+        class="name-line"
+        type="text"
+        placeholder="＿＿＿＿＿＿＿＿"
+        maxlength="20"
+        aria-label="英雄姓名"
+      />
+    </div>
+
+    <!-- Citation -->
+    <div class="citation">
+      特此證明，以上英雄於義次元大地遊戲中英勇探索校園，<br />
+      <span class="highlight">成功幫助七位義次元角色解除危機，</span><br />
+      並與夥伴合力完成終極瑪格麗特披薩合成任務。
+    </div>
+
+    <div class="divider">
+      <div class="divider-line"></div>
+      <div class="divider-icon">✨</div>
+      <div class="divider-line"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-row">
+      <div class="footer-block">
+        <div class="footer-sig-line"></div>
+        <div class="footer-label">關主簽名 &nbsp;Game Master</div>
+      </div>
+      <div class="seal">
+        <div class="seal-emoji">🍕</div>
+        <div class="seal-text">HERO SEAL</div>
+      </div>
+      <div class="footer-block">
+        <div class="footer-sig-line"></div>
+        <div class="footer-label">活動日期 &nbsp;Date</div>
+      </div>
+    </div>
+
+  </div><!-- /.content -->
+
+</div><!-- /.page -->
+
+<script>
+  function fitToScreen() {
+    const page = document.querySelector('.page');
+    const mmToPx = 3.7795;
+    const scaleX = window.innerWidth  / (297 * mmToPx);
+    const scaleY = window.innerHeight / (210 * mmToPx);
+    const scale  = Math.min(scaleX, scaleY, 1);
+    page.style.transform = `scale(${scale})`;
+    page.style.transformOrigin = 'center center';
+  }
+  window.addEventListener('resize', fitToScreen);
+  fitToScreen();
+</script>
+</body>
+</html>
