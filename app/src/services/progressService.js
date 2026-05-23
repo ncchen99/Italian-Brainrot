@@ -19,7 +19,7 @@ function getCooldownCacheKey(teamId, levelId) {
 
 function isSessionActive(teamData) {
   const endsAtMs = Number(teamData?.activeSessionEndsAtMs);
-  return Number.isFinite(endsAtMs) && endsAtMs > Date.now();
+  return Number.isFinite(endsAtMs);
 }
 
 export function clearLocalChallengeCache() {
