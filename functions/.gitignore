@@ -1,0 +1,5 @@
+# Ignore node_modules and runtime/debug files
+node_modules/
+.runtimeconfig.json
+firebase-debug.log
+.env

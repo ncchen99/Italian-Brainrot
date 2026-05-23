@@ -2,6 +2,7 @@ import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,6 +20,7 @@ let app = null;
 let auth = null;
 let db = null;
 let storage = null;
+let functions = null;
 
 if (isFirebaseEnabled) {
   app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -28,6 +30,7 @@ if (isFirebaseEnabled) {
     useFetchStreams: false
   });
   storage = firebaseConfig.storageBucket ? getStorage(app) : null;
+  functions = getFunctions(app);
 } else {
   // Keep local-only mode available for development before env is ready.
   console.warn('[firebase] Missing env config, running in local fallback mode.');
@@ -35,4 +38,4 @@ if (isFirebaseEnabled) {
 
 const isFirebaseStorageEnabled = isFirebaseEnabled && Boolean(firebaseConfig.storageBucket);
 
-export { app, auth, db, storage, isFirebaseEnabled, isFirebaseStorageEnabled };
+export { app, auth, db, storage, functions, isFirebaseEnabled, isFirebaseStorageEnabled };

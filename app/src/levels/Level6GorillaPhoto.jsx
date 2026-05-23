@@ -8,6 +8,7 @@ import { useAppSession } from '../contexts/AppSessionContext';
 import { ensureAnonymousAuth } from '../services/authService';
 import { uploadImageToFirebaseStorage } from '../services/uploadService';
 import { saveLevelProgress, saveUploadRecord, assignAntennaAndPasscode } from '../services/progressService';
+import { validateGorillaPose } from '../services/aiService';
 import { useTranslation, Trans } from 'react-i18next';
 
 export default function Level6GorillaPhoto() {
@@ -19,6 +20,7 @@ export default function Level6GorillaPhoto() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
   const [antennaState, setAntennaState] = useState(null);
+  const [aiResultReason, setAiResultReason] = useState('');
   const fileInputRef = useRef(null);
   const { isCoolingDown, remainingMs, triggerCooldown } = useLevelCooldown('level6');
   const { teamId, activeChallenge } = useAppSession();
@@ -52,12 +54,32 @@ export default function Level6GorillaPhoto() {
     if (photoFile && photoUrl) {
       setUploadStatus('uploading');
       setSubmitError('');
+      setAiResultReason('');
 
       try {
         const authUser = await ensureAnonymousAuth();
         const effectiveTeamId = teamId || authUser?.uid || null;
         if (!effectiveTeamId) {
           throw new Error(t('level6.errorNoAuth'));
+        }
+
+        // Call the AI validation service
+        const aiResult = await validateGorillaPose(photoFile);
+        setAiResultReason(aiResult.reason);
+
+        if (!aiResult.passed) {
+          if (effectiveTeamId && activeChallenge?.id) {
+            await saveLevelProgress({
+              teamId: effectiveTeamId,
+              sessionId: activeChallenge.id,
+              levelId: 'level6',
+              status: 'failed'
+            }).catch(console.error);
+          }
+          setUploadStatus('idle');
+          triggerCooldown();
+          setShowError(true);
+          return;
         }
 
         const uploadResult = await uploadImageToFirebaseStorage({
@@ -107,6 +129,7 @@ export default function Level6GorillaPhoto() {
       return;
     }
 
+    setAiResultReason('');
     if (teamId && activeChallenge?.id) {
       saveLevelProgress({
         teamId,
@@ -186,7 +209,14 @@ export default function Level6GorillaPhoto() {
       >
         <div className="flex flex-col items-center">
           <img src={characterAssets.level6.image} alt="Tung Tung Tung Sahur" className="w-20 h-20 mb-4 animate-bounce object-contain" />
-          <p className="text-white text-center font-bold mb-4"><Trans i18nKey="level6.successMsg" components={[<br key="br" />]} /></p>
+          <p className="text-white text-center font-bold mb-2"><Trans i18nKey="level6.successMsg" components={[<br key="br" />]} /></p>
+          
+          {aiResultReason && (
+            <p className="text-xs text-purple-200 text-center italic mb-4 bg-purple-950/40 border border-purple-500/20 rounded-xl px-3 py-2 w-full">
+              AI 評語：{aiResultReason}
+            </p>
+          )}
+
           <div className="bg-[#1A1D2E] p-4 rounded-xl border border-[#FBBF24] text-center w-full shadow-inner mb-4">
             <p className="text-[#FBBF24] text-xs mb-1">{t('level6.keyPoint')}</p>
             <p className="text-white text-sm font-bold">
@@ -210,7 +240,7 @@ export default function Level6GorillaPhoto() {
         type="error"
         showCloseButton={true}
       >
-        <p className="text-white">{t('level6.failMsg')}</p>
+        <p className="text-white">{aiResultReason || t('level6.failMsg')}</p>
         <p className="text-sm text-pink-200 mt-2">{t('level6.cooldownTime')} {formatCooldownTime(remainingMs)}</p>
       </Modal>
 

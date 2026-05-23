@@ -9,7 +9,8 @@ import {
   joinSynthesisStation,
   updateSynthesisPlaced,
   setSynthesisReady,
-  subscribeSynthesisStation
+  subscribeSynthesisStation,
+  saveLevelProgress
 } from '../services/progressService';
 import { useTranslation, Trans } from 'react-i18next';
 
@@ -110,20 +111,28 @@ export default function SynthesisRoom() {
     setPlacedInitialized(false);
   }, [stationCode]);
 
-  // Watch for both teams ready → trigger ending
+  // Watch for teams ready → trigger ending
   useEffect(() => {
     if (!station || phase !== 'station') return;
     const teams = Object.values(station.teams || {});
-    if (teams.length < 2) return;
+    if (teams.length < 1) return;
 
     const allPlacedIds = new Set(teams.flatMap((tm) => tm.placedIngredients || []));
     if (allPlacedIds.size < 5) return;
 
     if (teams.every((tm) => tm.ready)) {
       setPhase('ending');
+      if (teamId && activeChallenge?.id) {
+        saveLevelProgress({
+          teamId,
+          sessionId: activeChallenge.id,
+          levelId: 'level8',
+          status: 'completed'
+        }).catch(console.error);
+      }
       setTimeout(() => setShowEnding(true), 400);
     }
-  }, [station, phase]);
+  }, [station, phase, teamId, activeChallenge]);
 
   // Derived values
   const myIngredients = supportPlan.myIngredients;
