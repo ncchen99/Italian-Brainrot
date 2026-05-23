@@ -29,7 +29,6 @@ function readCachedActiveChallenge(teamId) {
     if (!parsed?.id || !Number.isFinite(endsAtMs) || !Number.isFinite(startedAtMs)) {
       return null;
     }
-    if (endsAtMs <= Date.now()) return null;
     return {
       id: String(parsed.id),
       teamId,
@@ -46,7 +45,6 @@ function writeCachedActiveChallenge(teamId, session) {
   const endsAtMs = Number(session.endsAtMs);
   const startedAtMs = Number(session.startedAtMs);
   if (!Number.isFinite(endsAtMs) || !Number.isFinite(startedAtMs)) return;
-  if (endsAtMs <= Date.now()) return;
 
   window.localStorage.setItem(
     getActiveChallengeCacheKey(teamId),
@@ -88,7 +86,7 @@ export function AppSessionProvider({ children }) {
       teamName: inputTeamName
     });
     const existingSession = await getActiveChallengeSession({ teamId: authUser.uid }).catch(() => null);
-    const hasActiveSession = Boolean(existingSession?.id && Number(existingSession?.endsAtMs) > Date.now());
+    const hasActiveSession = Boolean(existingSession?.id);
 
     if (!hasActiveSession) {
       clearScanAccess();
@@ -101,7 +99,7 @@ export function AppSessionProvider({ children }) {
           teamId: authUser.uid,
           teamName: profile.teamName
         });
-    if (session?.id && Number(session?.endsAtMs) > Date.now()) {
+    if (session?.id) {
       writeCachedActiveChallenge(authUser.uid, session);
     } else {
       clearCachedActiveChallenge(authUser.uid);
@@ -137,7 +135,7 @@ export function AppSessionProvider({ children }) {
     getActiveChallengeSession({ teamId: user.uid })
       .then((session) => {
         if (!alive) return;
-        const isValid = Boolean(session?.id && Number(session?.endsAtMs) > Date.now());
+        const isValid = Boolean(session?.id);
         if (isValid) {
           setActiveChallenge(session);
           writeCachedActiveChallenge(user.uid, session);

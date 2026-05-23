@@ -94,7 +94,7 @@ Respond ONLY with a JSON object in this format:
             ]
           }
         ],
-        max_tokens: 300
+        max_completion_tokens: 300
       })
     });
 

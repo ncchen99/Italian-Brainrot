@@ -1,29 +1,28 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { logger } = require('firebase-functions');
+const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-exports.validateGorillaPose = onCall({
+exports.validateGorillaPose = functions.runWith({
   secrets: ["OPENAI_API_KEY", "OPENAI_MODEL"],
   maxInstances: 10
-}, async (request) => {
+}).https.onCall(async (data, context) => {
   // Check if authenticated
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
   }
 
-  const { imageBase64 } = request.data;
+  const { imageBase64 } = data;
   if (!imageBase64) {
-    throw new HttpsError('invalid-argument', 'Missing imageBase64 parameter.');
+    throw new functions.https.HttpsError('invalid-argument', 'Missing imageBase64 parameter.');
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
   if (!apiKey) {
-    logger.error('OPENAI_API_KEY secret is not set.');
-    throw new HttpsError('failed-precondition', 'OpenAI API key is not configured on the server.');
+    console.error('OPENAI_API_KEY secret is not set.');
+    throw new functions.https.HttpsError('failed-precondition', 'OpenAI API key is not configured on the server.');
   }
 
   try {
@@ -66,21 +65,21 @@ Respond ONLY with a JSON object in this format:
             ]
           }
         ],
-        max_tokens: 300
+        max_completion_tokens: 300
       })
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      logger.error('OpenAI API returned error:', response.status, errText);
-      throw new HttpsError('internal', `OpenAI API returned error: ${response.status}`);
+      console.error('OpenAI API returned error:', response.status, errText);
+      throw new functions.https.HttpsError('internal', `OpenAI API returned error: ${response.status}`);
     }
 
-    const data = await response.json();
-    let content = data.choices?.[0]?.message?.content?.trim();
+    const resData = await response.json();
+    let content = resData.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
-      throw new HttpsError('internal', 'OpenAI API returned empty response');
+      throw new functions.https.HttpsError('internal', 'OpenAI API returned empty response');
     }
 
     if (content.startsWith("```")) {
@@ -90,11 +89,11 @@ Respond ONLY with a JSON object in this format:
     const result = JSON.parse(content);
     return {
       passed: !!result.passed,
-      reason: result.reason || (result.passed ? '恭喜通過大猩猩認證！' : '動作動作不太像大猩猩，再試一次吧！')
+      reason: result.reason || (result.passed ? '恭喜通過大猩猩認證！' : '動作不太像大猩猩，再試一次吧！')
     };
 
   } catch (error) {
-    logger.error('AI validation failed:', error);
-    throw new HttpsError('internal', `AI 認證失敗：${error.message}`);
+    console.error('AI validation failed:', error);
+    throw new functions.https.HttpsError('internal', `AI 認證失敗：${error.message}`);
   }
 });
