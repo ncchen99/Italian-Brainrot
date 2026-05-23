@@ -8,8 +8,10 @@ import {
   getAllTeamSessions,
   getTeamUploads,
   deleteTeam,
-  checkIsAdmin
+  checkIsAdmin,
+  cloneTeamProgress
 } from '../services/adminService';
+import { useAppSession } from '../contexts/AppSessionContext';
 import { 
   ClockIcon, 
   ChartBarIcon, 
@@ -121,14 +123,45 @@ function TeamCard({ team, onOpenDetail }) {
 }
 
 // ── TeamDetailModal ───────────────────────────────────────────────────────────
-function TeamDetailModal({ teamId, teamName, onClose, onDeleted }) {
+function TeamDetailModal({ teamId, teamName, allTeams = [], onClose, onDeleted }) {
+  const navigate = useNavigate();
+  const { startImpersonating } = useAppSession();
+
   const [tab, setTab] = useState('progress');
   const [sessionDetail, setSessionDetail] = useState(null);
   const [allSessions, setAllSessions] = useState([]);
   const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [deleteStep, setDeleteStep] = useState(0); // 0=idle 1=confirm 2=deleting
   const [deleteError, setDeleteError] = useState('');
+
+  const [transferStep, setTransferStep] = useState(0); // 0=idle, 1=show form, 2=copying
+  const [targetTeamId, setTargetTeamId] = useState('');
+  const [transferError, setTransferError] = useState('');
+
+  const handleImpersonateClick = () => {
+    startImpersonating(teamId, teamName);
+    onClose();
+    navigate('/dashboard');
+  };
+
+  const handleTransferProgress = async () => {
+    if (!targetTeamId) return;
+    setTransferStep(2);
+    setTransferError('');
+    try {
+      await cloneTeamProgress(teamId, targetTeamId, { copyName: false });
+      alert('進度轉移成功！');
+      setTransferStep(0);
+      setTargetTeamId('');
+      onClose();
+    } catch (err) {
+      console.error('Transfer progress failed:', err);
+      setTransferError(err.message || '進度轉移失敗，請重試');
+      setTransferStep(1);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -228,44 +261,124 @@ function TeamDetailModal({ teamId, teamName, onClose, onDeleted }) {
           )}
         </div>
 
-        {/* Delete Zone */}
-        <div className="border-t border-white/10 p-4 flex-shrink-0">
-          {deleteStep === 0 && (
-            <button
-              onClick={() => setDeleteStep(1)}
-              className="w-full py-3 rounded-2xl border border-red-500/40 bg-red-900/30 text-red-300 text-sm font-semibold hover:bg-red-900/50 transition-colors flex items-center justify-center gap-2"
-            >
-              <TrashIcon className="w-4 h-4" />
-              刪除此隊伍
-            </button>
+        {/* Unified Actions Zone */}
+        <div className="border-t border-white/10 p-4 flex-shrink-0 space-y-3 bg-white/5">
+          {/* Main Action Row */}
+          {transferStep === 0 && deleteStep === 0 && (
+            <div className="flex gap-3">
+              <button
+                onClick={handleImpersonateClick}
+                className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-sm font-bold shadow-lg shadow-amber-500/10 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <IdentificationIcon className="w-4 h-4 text-white" />
+                模擬此隊伍
+              </button>
+              <button
+                onClick={() => setTransferStep(1)}
+                className="flex-1 py-3 rounded-2xl bg-[#7C5CFC]/20 hover:bg-[#7C5CFC]/30 border border-[#7C5CFC]/40 text-[#C4B5FD] text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <ClipboardDocumentListIcon className="w-4 h-4" />
+                轉移進度
+              </button>
+            </div>
           )}
-          {deleteStep === 1 && (
-            <div className="space-y-3">
-              <p className="text-sm text-red-300 text-center">
-                確定刪除「<span className="font-bold text-white">{teamName}</span>」？<br />
-                <span className="text-xs text-gray-400">所有資料與圖片將一併刪除，無法復原。</span>
+
+          {/* Transfer Progress Interface */}
+          {transferStep === 1 && (
+            <div className="space-y-3 p-3 rounded-2xl border border-[#7C5CFC]/30 bg-[#7C5CFC]/5">
+              <p className="text-sm font-bold text-[#C4B5FD] flex items-center gap-1.5">
+                <ClipboardDocumentListIcon className="w-4.5 h-4.5" />
+                轉移進度至其他隊伍
               </p>
-              <div className="flex gap-3">
+              <p className="text-xs text-gray-400">
+                此操作將會把「{teamName || '此小隊'}」的進度複製到目標隊伍，覆蓋目標隊伍原有的所有關卡進度與挑戰記錄！此操作無法復原。
+              </p>
+              
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5">選擇目標隊伍：</label>
+                <select
+                  value={targetTeamId}
+                  onChange={(e) => setTargetTeamId(e.target.value)}
+                  className="w-full bg-[#0F1524] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7C5CFC]"
+                >
+                  <option value="">-- 請選擇隊伍 --</option>
+                  {allTeams
+                    .filter((t) => t.id !== teamId)
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name || '未命名隊伍'} ({t.id.slice(0, 8)}…)
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {transferError && <p className="text-xs text-red-400 font-semibold">{transferError}</p>}
+
+              <div className="flex gap-2">
                 <button
-                  onClick={() => setDeleteStep(0)}
-                  className="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 text-sm font-semibold hover:bg-white/20 transition-colors"
+                  onClick={() => { setTransferStep(0); setTargetTeamId(''); setTransferError(''); }}
+                  className="flex-1 py-2 rounded-xl bg-white/10 text-gray-300 text-xs font-semibold hover:bg-white/20 transition-colors"
                 >
                   取消
                 </button>
                 <button
-                  onClick={handleDelete}
-                  className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors"
+                  onClick={handleTransferProgress}
+                  disabled={!targetTeamId}
+                  className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white text-xs font-bold transition-colors"
                 >
-                  確認刪除
+                  確認覆蓋並轉移
                 </button>
               </div>
-              {deleteError && <p className="text-xs text-red-400 text-center">{deleteError}</p>}
             </div>
           )}
-          {deleteStep === 2 && (
-            <div className="flex items-center justify-center gap-2 py-3 text-sm text-gray-400">
-              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-              刪除中…
+
+          {transferStep === 2 && (
+            <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-400">
+              <div className="w-4 h-4 border-2 border-[#7C5CFC] border-t-transparent rounded-full animate-spin" />
+              進度轉移中，請稍候…
+            </div>
+          )}
+
+          {/* Delete Section */}
+          {transferStep === 0 && (
+            <div>
+              {deleteStep === 0 && (
+                <button
+                  onClick={() => setDeleteStep(1)}
+                  className="w-full py-2.5 rounded-xl border border-red-500/20 bg-red-900/10 text-red-400 text-xs font-semibold hover:bg-red-900/30 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <TrashIcon className="w-3.5 h-3.5" />
+                  刪除此隊伍
+                </button>
+              )}
+              {deleteStep === 1 && (
+                <div className="space-y-3 p-3 rounded-2xl border border-red-500/30 bg-red-950/10">
+                  <p className="text-xs text-red-300 text-center">
+                    確定刪除「<span className="font-bold text-white">{teamName}</span>」？此操作將會刪除該隊伍的全部進度與上傳圖片，無法復原。
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setDeleteStep(0)}
+                      className="flex-1 py-2 rounded-xl bg-white/10 text-gray-300 text-xs font-semibold hover:bg-white/20 transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      className="flex-1 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
+                    >
+                      確認刪除
+                    </button>
+                  </div>
+                  {deleteError && <p className="text-xs text-red-400 text-center">{deleteError}</p>}
+                </div>
+              )}
+              {deleteStep === 2 && (
+                <div className="flex items-center justify-center gap-2 py-3 text-xs text-gray-400">
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  刪除中…
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -626,6 +739,7 @@ export default function AdminDashboardPage() {
         <TeamDetailModal
           teamId={selectedTeamId}
           teamName={selectedTeam?.name || ''}
+          allTeams={teams}
           onClose={() => setSelectedTeamId(null)}
           onDeleted={handleDeleted}
         />

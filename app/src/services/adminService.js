@@ -7,7 +7,8 @@ import {
   getDocs,
   onSnapshot,
   orderBy,
-  query
+  query,
+  setDoc
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { db, storage, isFirebaseEnabled, isFirebaseStorageEnabled } from '../lib/firebase';
@@ -191,4 +192,75 @@ export async function deleteTeam(teamId) {
 
   // 3. Delete team document itself
   await deleteDoc(doc(db, 'teams', teamId));
+}
+
+// ─── Clone / Transfer Progress ───────────────────────────────────────────────
+
+async function copyCollectionDocs(sourcePath, targetPath) {
+  const sourceCol = collection(db, ...sourcePath);
+  const snapshot = await getDocs(sourceCol);
+  await Promise.all(
+    snapshot.docs.map((d) => {
+      const targetDocRef = doc(db, ...targetPath, d.id);
+      return setDoc(targetDocRef, d.data());
+    })
+  );
+}
+
+async function copyChallengeSessions(sourceTeamId, targetTeamId) {
+  const sessionsCol = collection(db, 'teams', sourceTeamId, 'challengeSessions');
+  const snapshot = await getDocs(sessionsCol);
+  for (const sessionDoc of snapshot.docs) {
+    const sid = sessionDoc.id;
+    // 1. Copy session document itself
+    const targetSessionDocRef = doc(db, 'teams', targetTeamId, 'challengeSessions', sid);
+    await setDoc(targetSessionDocRef, sessionDoc.data());
+
+    // 2. Copy progress subcollection
+    await copyCollectionDocs(
+      ['teams', sourceTeamId, 'challengeSessions', sid, 'progress'],
+      ['teams', targetTeamId, 'challengeSessions', sid, 'progress']
+    );
+
+    // 3. Copy cooldowns subcollection
+    await copyCollectionDocs(
+      ['teams', sourceTeamId, 'challengeSessions', sid, 'cooldowns'],
+      ['teams', targetTeamId, 'challengeSessions', sid, 'cooldowns']
+    );
+  }
+}
+
+/**
+ * Clones/transfers all progress and session data from a source team to a target team.
+ * Helpful for recovering a lost session onto a new device/anonymous UID.
+ */
+export async function cloneTeamProgress(sourceTeamId, targetTeamId, options = { copyName: true }) {
+  if (!isFirebaseEnabled || !db || !sourceTeamId || !targetTeamId) return;
+
+  const sourceSnap = await getDoc(doc(db, 'teams', sourceTeamId));
+  if (!sourceSnap.exists()) {
+    throw new Error('來源隊伍不存在');
+  }
+  const sourceData = sourceSnap.data();
+
+  const updatePayload = {
+    activeSessionId: sourceData.activeSessionId || null,
+    activeSessionStartedAtMs: sourceData.activeSessionStartedAtMs || null,
+    activeSessionEndsAtMs: sourceData.activeSessionEndsAtMs || null,
+    updatedAt: new Date()
+  };
+
+  if (options.copyName && sourceData.name) {
+    updatePayload.name = sourceData.name;
+  }
+
+  // 1. Write target team document
+  await setDoc(doc(db, 'teams', targetTeamId), updatePayload, { merge: true });
+
+  // 2. Copy subcollections
+  await copyCollectionDocs(['teams', sourceTeamId, 'progress'], ['teams', targetTeamId, 'progress']);
+  await copyCollectionDocs(['teams', sourceTeamId, 'uploads'], ['teams', targetTeamId, 'uploads']);
+  await copyCollectionDocs(['teams', sourceTeamId, 'scanAccess'], ['teams', targetTeamId, 'scanAccess']);
+  await copyCollectionDocs(['teams', sourceTeamId, 'cooldowns'], ['teams', targetTeamId, 'cooldowns']);
+  await copyChallengeSessions(sourceTeamId, targetTeamId);
 }

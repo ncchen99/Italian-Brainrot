@@ -67,7 +67,15 @@ export function AppSessionProvider({ children }) {
   const [activeChallenge, setActiveChallenge] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [impersonateUid, setImpersonateUid] = useState(window.localStorage.getItem('ibr-impersonate-uid') || null);
+  const [impersonateName, setImpersonateName] = useState(window.localStorage.getItem('ibr-impersonate-name') || null);
+
   const clearSessionState = () => {
+    window.localStorage.removeItem('ibr-impersonate-uid');
+    window.localStorage.removeItem('ibr-impersonate-name');
+    setImpersonateUid(null);
+    setImpersonateName(null);
+
     clearStoredAuthState();
     clearScanAccess();
     clearLocalChallengeCache();
@@ -120,29 +128,30 @@ export function AppSessionProvider({ children }) {
 
   useEffect(() => {
     let alive = true;
-    if (!user?.uid) {
+    const effectiveUid = impersonateUid || user?.uid;
+    if (!effectiveUid) {
       setActiveChallenge(null);
       return () => {
         alive = false;
       };
     }
 
-    const cached = readCachedActiveChallenge(user.uid);
+    const cached = readCachedActiveChallenge(effectiveUid);
     if (cached) {
       setActiveChallenge(cached);
     }
 
-    getActiveChallengeSession({ teamId: user.uid })
+    getActiveChallengeSession({ teamId: effectiveUid })
       .then((session) => {
         if (!alive) return;
         const isValid = Boolean(session?.id);
         if (isValid) {
           setActiveChallenge(session);
-          writeCachedActiveChallenge(user.uid, session);
+          writeCachedActiveChallenge(effectiveUid, session);
           return;
         }
         setActiveChallenge(null);
-        clearCachedActiveChallenge(user.uid);
+        clearCachedActiveChallenge(effectiveUid);
       })
       .catch(() => {
         if (!alive) return;
@@ -154,10 +163,11 @@ export function AppSessionProvider({ children }) {
     return () => {
       alive = false;
     };
-  }, [user?.uid]);
+  }, [user?.uid, impersonateUid]);
 
   // Listen for team document deletion (Admin action)
   useEffect(() => {
+    if (impersonateUid) return; // Skip deletion subscription if impersonating
     if (!user?.uid || user?.isLocalFallback) return;
     // Only care if we actually have a team name (i.e., we are already "logged in" as a specific team)
     if (!teamName) return;
@@ -168,19 +178,40 @@ export function AppSessionProvider({ children }) {
     });
 
     return unsubscribe;
-  }, [user?.uid, teamName]);
+  }, [user?.uid, teamName, impersonateUid]);
 
 
-  const value = useMemo(() => ({
-    user,
-    teamId: user?.uid || null,
-    teamName,
-    activeChallenge,
-    setTeamName,
-    loading,
-    bindTeamProfile,
-    clearSessionState
-  }), [user, teamName, activeChallenge, loading]);
+  const value = useMemo(() => {
+    const effectiveTeamId = impersonateUid || user?.uid || null;
+    const effectiveTeamName = impersonateUid ? impersonateName : teamName;
+
+    return {
+      user,
+      teamId: effectiveTeamId,
+      teamName: effectiveTeamName,
+      activeChallenge,
+      setTeamName: impersonateUid ? () => {} : setTeamName,
+      loading,
+      bindTeamProfile,
+      clearSessionState,
+      
+      // Impersonation features
+      isImpersonating: Boolean(impersonateUid),
+      realUser: user,
+      startImpersonating: (uid, name) => {
+        window.localStorage.setItem('ibr-impersonate-uid', uid);
+        window.localStorage.setItem('ibr-impersonate-name', name);
+        setImpersonateUid(uid);
+        setImpersonateName(name);
+      },
+      stopImpersonating: () => {
+        window.localStorage.removeItem('ibr-impersonate-uid');
+        window.localStorage.removeItem('ibr-impersonate-name');
+        setImpersonateUid(null);
+        setImpersonateName(null);
+      }
+    };
+  }, [user, teamName, activeChallenge, loading, impersonateUid, impersonateName]);
 
   return (
     <AppSessionContext.Provider value={value}>
